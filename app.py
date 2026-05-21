@@ -15,7 +15,6 @@ st.set_page_config(page_title="Simulado - Salesforce Admin", page_icon="🛡️"
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # --- REQUISITOS DA PROVA SALESFORCE ADMIN (CRT-101) ---
-# Pontuação mínima para passar: 65% de acertos na prova oficial.
 PESOS_MODULOS = {
     "Configuração e Objetos (20%)": 20,
     "Segurança e Acesso (14%)": 14,
@@ -46,8 +45,10 @@ def salvar_no_historico(tema, dificuldade, pontos, total):
     data_atual = datetime.now(fuso_brasil).strftime("%d/%m/%Y %H:%M")
     
     score = int((pontos / total) * 100)
-    novo_registro = pd.DataFrame([[data_atual, tema, dificuldade, pontos, total, f"{score}%"]], 
+    novo_registro = pd.DataFrame([[data_atual, tema, difficulty if 'difficulty' in locals() else dificuldade, pontos, total, f"{score}%"]], 
                                 columns=['Data', 'Tema', 'Dificuldade', 'Acertos', 'Total', 'Score %'])
+    # Pequena correção preventiva caso o nome antigo escape
+    novo_registro.columns = ['Data', 'Tema', 'Dificuldade', 'Acertos', 'Total', 'Score %']
     df_atual = carregar_dados()
     df_final = pd.concat([df_atual, novo_registro], ignore_index=True)
     df_final.to_csv(arquivo, index=False)
@@ -69,18 +70,19 @@ def extrair_texto_url(url):
 def gerar_questoes_ia(tema, nivel, contexto_web):
     base_info = f"Baseie-se neste conteúdo oficial da Salesforce: {contexto_web}" if contexto_web else "Use seu conhecimento geral de Salesforce."
     
+    # Alterado o prompt explicitamente para pedir 15 questões
     prompt = f"""
     {base_info}
-    Gere exatamente 20 perguntas de múltipla escolha sobre Salesforce {tema}, nível {nivel}.
+    Gere exatamente 15 perguntas de múltipla escolha sobre Salesforce {tema}, nível {nivel}.
     Foque em cenários práticos e realistas de prova de certificação Administrator (CRT-101).
     Responda EXCLUSIVAMENTE em formato JSON estruturado:
     {{
       "perguntas": [
         {{
-          "pergunta": "Texto completo do cenário ou questão", 
+          "pergunta": "Texto completa do cenário ou questão", 
           "opcoes": ["A) Opção 1", "B) Opção 2", "C) Opção 3", "D) Opção 4"], 
           "correta": "A",
-          "explicacao": "Explicação detalhada do porquê esta alternativa está correta com base nas regras do ecossistema."
+          "explicacao": "Explicação detalhada do porquê esta alternativa está correta."
         }}
       ]
     }}
@@ -92,17 +94,16 @@ def gerar_questoes_ia(tema, nivel, contexto_web):
         response_format={ "type": "json_object" }
     )
     dados = json.loads(response.choices[0].message.content)
-    return dados.get('perguntas', [])[:20]
+    return dados.get('perguntas', [])[:15]
 
 # --- DESIGN PRINCIPAL ---
-# Título ajustado com HTML para forçar um tamanho menor (24px) que caiba em uma única linha no celular
 st.markdown('<h2 style="font-size: 24px; margin-bottom: 10px;">🎓 Simulado - Salesforce Admin</h2>', unsafe_allow_html=True)
 
 aba_config, aba_simulado, aba_progresso = st.tabs(["⚙️ Configurar", "🔥 Simulado", "📊 Meu Progresso"])
 
 # --- ABA 1: CONFIGURAÇÃO ---
 with aba_config:
-    st.write("### 🛠️ Configurar Novo Teste (20 Questões)")
+    st.write("### 🛠️ Configurar Novo Teste (15 Questões)")
     
     topico_selecionado = st.selectbox("Escolha o Tópico do Exame:", list(LINKS_CERTIFICACAO.keys()))
     nivel = st.selectbox("Escolha o Nível de Dificuldade:", ["Iniciante", "Intermediário", "Especialista"])
@@ -111,7 +112,7 @@ with aba_config:
     if st.button("🚀 Gerar Simulado Completo"):
         url_para_ler = url_manual if topico_selecionado == "Personalizado (Usar link do campo abaixo)" else LINKS_CERTIFICACAO[topico_selecionado]
         
-        with st.spinner("Construindo caderno com 20 questões exclusivas..."):
+        with st.spinner("Construindo caderno com 15 questões exclusivas..."):
             conteudo = extrair_texto_url(url_para_ler)
             st.session_state.questoes = gerar_questoes_ia(topico_selecionado, nivel, conteudo)
             st.session_state.respostas_usuario = {}
@@ -143,7 +144,7 @@ with aba_simulado:
                     st.success(f"✅ Correto! Gabarito: {q['correta']}")
                 else:
                     st.error(f"❌ Errado. Sua resposta: {user_choice if user_choice else 'Nenhuma'}. Resposta Certa: {q['correta']}.")
-                with st.expander("💡 Ver Justificativa Técnico"):
+                with st.expander("💡 Ver Justificativa Técnica"):
                     st.write(q['explicacao'])
             st.markdown("---")
 
