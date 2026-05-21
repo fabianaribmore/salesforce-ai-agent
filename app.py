@@ -87,13 +87,4 @@ with aba_config:
             st.session_state.respostas_usuario = {}
             st.session_state.corrigido = False
             st.session_state.simulado_ativo = True
-            st.session_state.topico_atual = topico_selecionado
-            st.session_state.nivel_atual = nivel
-            st.session_state.confirmou_salvamento = False
-            st.success("Simulado pronto! Vá para a aba '🔥 Simulado'.")
-
-# --- ABA 2: O SIMULADO ---
-with aba_simulado:
-    if st.session_state.get('simulado_ativo'):
-        st.markdown(f"### 📝 Prova Ativa: {st.session_state.get('topico_atual')}")
-        st
+            st.session_state.topico
