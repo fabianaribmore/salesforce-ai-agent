@@ -10,21 +10,25 @@ import re
 # 1. Configuração da Página
 st.set_page_config(page_title="Simulado - Salesforce Administrator", page_icon="🛡️", layout="wide")
 
-# --- CSS CUSTOMIZADO PARA MAXIMIZAR COMPATIBILIDADE MOBILE ---
+# --- CSS DEFINITIVO PARA EXTINÇÃO DE BARRAS DE ROLAGEM NO MOBILE ---
 st.markdown(
     """
     <style>
-    /* Força o container do DataFrame a ocupar toda a largura sem overflow */
-    div[data-testid="stDataFrame"] > div {
+    /* Força tabelas estáticas a ocuparem 100% da tela sem gerar overflow lateral */
+    div[data-testid="stTable"] {
         width: 100% !important;
         overflow-x: hidden !important;
     }
-    /* Obriga a quebra de linha interna e ajusta fontes para telas mobile */
-    div[data-testid="stDataFrame"] td, div[data-testid="stDataFrame"] th {
+    div[data-testid="stTable"] table {
+        width: 100% !important;
+        margin: 0px !important;
+    }
+    /* Estilização Executiva para as Células (Quebra automática e tamanho responsivo) */
+    div[data-testid="stTable"] td, div[data-testid="stTable"] th {
         white-space: normal !important;
         word-wrap: break-word !important;
         font-size: 13px !important;
-        padding: 6px 4px !important;
+        padding: 8px 6px !important;
     }
     </style>
     """,
@@ -221,34 +225,30 @@ with aba_progresso:
         df_modulos.columns = ['Módulo', 'Total Acertos', 'Total Questões']
         
         df_modulos['Porcentagem_Valor'] = ((df_modulos['Total Acertos'] / df_modulos['Total Questões']) * 100).astype(int)
-        df_modulos['Módulo do Exame'] = df_modulos.apply(lambda r: f"{r['Módulo']} ({r['Porcentagem_Valor']}%)", axis=1)
         
-        # MATRIZ PROFISSIONAL DE DIRECIONAMENTO
+        # Criação das duas colunas perfeitamente limpas
+        df_modulos['Tópico Avaliado'] = df_modulos.apply(lambda r: f"{r['Módulo']} ({r['Porcentagem_Valor']}%)", axis=1)
+        
         def definir_direcionamento_executivo(pct):
             if pct < 50:
                 return "Reforço Imediato"
             elif pct < 65:
-                # Caso esteja entre 50% e 64% (perto da aprovação de 65%)
                 return "Nivelamento"
             elif pct < 80:
                 return "Consolidação"
             return "Domínio Seguro"
             
-        df_modulos['Recomendação'] = df_modulos['Porcentagem_Valor'].apply(definir_direcionamento_executivo)
+        df_modulos['Plano de Ação'] = df_modulos['Porcentagem_Valor'].apply(definir_direcionamento_executivo)
         
-        # Ordenação inteligente: menores aproveitamentos em cima
+        # Ordenação: pior aproveitamento no topo
         df_modulos = df_modulos.sort_values(by='Porcentagem_Valor', ascending=True)
         
-        # Exibição compacta e proporcional usando pesos fixos para evitar barras de rolagem
-        st.dataframe(
-            df_modulos[['Módulo do Exame', 'Recomendação']], 
-            use_container_width=True, 
-            hide_index=True,
-            column_config={
-                "Módulo do Exame": st.column_config.TextColumn("Tópico Avaliado e Rendimento"),
-                "Recomendação": st.column_config.TextColumn("Plano de Ação Sugerido")
-            }
-        )
+        # Filtro final com novos nomes limpos para o cabeçalho
+        tabela_final = df_modulos[['Tópico Avaliado', 'Plano de Ação']].copy()
+        tabela_final.columns = ['Tópico e Rendimento', 'Plano de Ação']
+        
+        # Mudança chave: st.table força a tabela a ser estática e quebrar linhas nativamente sem criar caixas de rolagem
+        st.table(tabela_final)
         
     else:
         st.info("O histórico está vazio. Faça um teste para ativar o painel!")
