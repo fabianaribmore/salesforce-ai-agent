@@ -178,3 +178,65 @@ with aba_progresso:
                 <div style="text-align: center; padding: 2px;">
                     <span style="font-size: 12px; color: #666; font-weight: 600; display:block; text-transform: uppercase; letter-spacing: 0.5px;">Média de Acertos Geral</span>
                     <span style="font-size: 30px; font-weight: 800; color: #1E88E5; display: block; line-height: 1.1;">{media_geral}%</span>
+                    <span style="font-size: 12px; font-weight: 700; color: {color_status}; display: block; margin-top: 2px;">
+                        Previsão: {status_aprovacao}
+                    </span>
+                </div>
+                """, 
+                unsafe_allow_html=True
+            )
+            
+        st.write("---")
+        
+        # --- TABELA DE RENDIMENTO COMPACTA ---
+        st.markdown('<span style="font-size: 15px; font-weight: 700; color: #333;">🏷️ Rendimento Médio por Módulo</span>', unsafe_allow_html=True)
+        df_modulos = df.groupby('Tema')['Score_Num'].mean().reset_index()
+        df_modulos.columns = ['Módulo', 'Aproveitamento']
+        df_modulos['Aproveitamento'] = df_modulos['Aproveitamento'].round(0).astype(int).astype(str) + '%'
+        
+        # Exibição profissional reduzida
+        st.dataframe(df_modulos, use_container_width=True, hide_index=True)
+        
+        st.write("---")
+        
+        # --- SEÇÃO CRÍTICA FILTRADA ---
+        st.markdown('<span style="font-size: 15px; font-weight: 700; color: #333;">🔍 Atenção Urgente (Abaixo de 65%):</span>', unsafe_allow_html=True)
+        medias_por_tema = df.groupby('Tema')['Score_Num'].mean().to_dict()
+        temas_criticos = [f"⚠️ **{tema}** <span style='color:#C62828; font-weight:700;'>({int(media)}%)</span>" for tema, media in medias_por_tema.items() if media < 65]
+                
+        if temas_criticos:
+            for item in temas_criticos:
+                st.markdown(f"<div style='font-size:13px; margin-bottom:4px;'>{item}</div>", unsafe_allow_html=True)
+        else:
+            st.success("🔥 Excelente! Todos os módulos estão acima da meta de 65%.")
+
+        st.write("---")
+        
+        # --- CARDS DE ATIVIDADES PREMIUM ---
+        st.markdown('<span style="font-size: 15px; font-weight: 700; color: #333; display:block; margin-bottom:8px;">📋 Detalhes dos Testes Realizados</span>', unsafe_allow_html=True)
+        df_invertido = df.copy().iloc[::-1]
+        
+        for _, row in df_invertido.iterrows():
+            is_aprovado = row['Score_Num'] >= 65
+            color_border = "#A5D6A7" if is_aprovado else "#EF9A9A"
+            color_badge = "#E8F5E9" if is_aprovado else "#FFEBEE"
+            color_txt = "#2E7D32" if is_aprovado else "#C62828"
+            status_text = "OK" if is_aprovado else "Rev"
+            
+            st.markdown(
+                f"""
+                <div style="border-left: 4px solid {color_border}; background-color: #FAFAFA; padding: 8px 12px; margin-bottom: 6px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #E0E0E0; border-right: 1px solid #E0E0E0; border-bottom: 1px solid #E0E0E0;">
+                    <div style="flex-grow: 1; padding-right: 8px;">
+                        <span style="font-size: 13px; font-weight: 600; color: #222; display: block; line-height: 1.2;">{row['Tema']}</span>
+                        <span style="font-size: 10px; color: #888;">{row['Data']}</span>
+                    </div>
+                    <div style="background-color: {color_badge}; padding: 2px 8px; border-radius: 6px; min-width: 65px; text-align: center; border: 1px solid {color_border};">
+                        <span style="font-size: 12px; font-weight: 700; color: {color_txt};">{row['Score %']} | {status_text}</span>
+                    </div>
+                </div>
+                """, 
+                unsafe_allow_html=True
+            )
+        
+    else:
+        st.info("O histórico está vazio. Faça um teste para ativar o painel!")
