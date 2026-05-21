@@ -33,6 +33,7 @@ def salvar_no_historico(tema, dificuldade, pontos, total):
     fuso_brasil = zoneinfo.ZoneInfo("America/Sao_Paulo")
     data_atual = datetime.now(fuso_brasil).strftime("%d/%m/%Y %H:%M")
     
+    # CORREÇÃO DA PORCENTAGEM: Calcula estritamente com base nos acertos reais do teste
     score = int((pontos / total) * 100)
     novo_registro = pd.DataFrame([[data_atual, tema, dificuldade, pontos, total, f"{score}%"]], 
                                 columns=['Data', 'Tema', 'Dificuldade', 'Acertos', 'Total', 'Score %'])
@@ -43,35 +44,36 @@ def salvar_no_historico(tema, dificuldade, pontos, total):
 
 def gerar_questoes_ia(tema, nivel):
     prompt = f"""
-    Crie OBRIGATORIAMENTE um caderno com exatamente 15 perguntas inéditas de múltipla escolha sobre o módulo: {tema}.
-    Nível de complexidade das questões: {nivel}.
-    Alinhamento obrigatório: Matriz de competências da prova Salesforce Certified Administrator (CRT-101).
-    Foque em situações-problema do cotidiano de um administrador.
+    Gere um caderno de testes COMPLETAMENTE ALEATÓRIO e INÉDITO contendo exatamente 10 perguntas de múltipla escolha sobre o módulo: {tema}.
+    Nível de complexidade exigido: {nivel}.
+    Mecânica de Alinhamento: Exame oficial Salesforce Certified Administrator (CRT-101).
+    Importante: Varie os cenários de negócios, use diferentes objetos e requisitos práticos a cada execução para que o aluno nunca estude com o mesmo padrão.
     
-    Não termine a geração antes de preencher todos os 15 objetos no array JSON.
+    Certifique-se de preencher rigorosamente todos os 10 objetos no array JSON.
     Responda EXCLUSIVAMENTE no formato JSON estruturado abaixo:
     {{
       "perguntas": [
         {{
-          "pergunta": "Texto completo do cenário ou questão", 
+          "pergunta": "Texto dinâmico e prático do cenário ou questão", 
           "opcoes": ["A) Opção 1", "B) Opção 2", "C) Opção 3", "D) Opção 4"], 
           "correta": "A/B/C/D",
-          "explicacao": "Explicação detalhada alinhada às boas práticas oficiais Salesforce."
+          "explicacao": "Análise técnica justificando a alternativa correta baseada nas regras de arquitetura da Salesforce."
         }}
       ]
     }}
     """
     response = client.chat.completions.create(
         model="gpt-4o-mini", 
-        messages=[{"role": "system", "content": "Você é um gerador automatizado rigoroso. Sua principal diretriz é entregar exatamente 15 blocos válidos de perguntas dentro do array JSON, sem omitir ou cortar nenhum registro por falta de espaço."},
+        messages=[{"role": "system", "content": "Você é um avaliador Salesforce dinâmico. Sua meta é criar 10 questões originais, variadas e nunca repetidas dentro do bloco JSON."},
                   {"role": "user", "content": prompt}],
-        response_format={ "type": "json_object" }
+        response_format={ "type": "json_object" },
+        temperature=0.9
     )
     dados = json.loads(response.choices[0].message.content)
-    return dados.get('perguntas', [])[:15]
+    return dados.get('perguntas', [])[:10]
 
 # --- DESIGN PRINCIPAL ---
-st.markdown('<h2 style="font-size: 22px; margin-bottom: 15px;">🎓 Simulado - Salesforce Administrator</h2>', unsafe_allow_html=True)
+st.markdown('<h2 style="font-size: 20px; margin-bottom: 12px; font-weight: 700; color: #1E88E5;">🛡️ Salesforce Admin Coach AI</h2>', unsafe_allow_html=True)
 
 aba_config, aba_simulado, aba_progresso = st.tabs(["⚙️ Configurar", "🔥 Simulado", "📊 Meu Progresso"])
 
@@ -81,7 +83,7 @@ with aba_config:
     nivel = st.selectbox("Escolha o Nível de Dificuldade:", ["Iniciante", "Intermediário", "Especialista"])
     
     if st.button("🚀 Gerar Simulado Completo"):
-        with st.spinner("Construindo caderno com 15 questões..."):
+        with st.spinner("Sorteando 10 questões inéditas..."):
             st.session_state.questoes = gerar_questoes_ia(topico_selecionado, nivel)
             st.session_state.respostas_usuario = {}
             st.session_state.corrigido = False
@@ -117,31 +119,27 @@ with aba_simulado:
                     st.write(q['explicacao'])
             st.markdown("---")
 
-        # Zona de Validação e Encerramento
+        # Zona de Validação Profissional (Compacta e Elegante)
         if not st.session_state.get('corrigido'):
             if st.button("🏁 Finalizar e Corrigir Simulado"):
                 total_questoes = len(st.session_state.questoes)
                 
-                # Gerar dados para a tabela estática de checagem interna
                 status_respostas = []
                 for idx in range(total_questoes):
-                    num_questao = f"Questão {idx+1}"
                     status_respostas.append({
-                        "Item": num_questao, 
-                        "Situação": "✅ OK" if idx in st.session_state.respostas_usuario else "❌ EM BRANCO"
+                        "Questão": f"Questão {idx+1}", 
+                        "Status": "🟩 Respondida" if idx in st.session_state.respostas_usuario else "⬜ Em Branco"
                     })
                 
                 df_checagem = pd.DataFrame(status_respostas)
                 
-                # Bloqueia se houver pendências
                 if len(st.session_state.respostas_usuario) < total_questoes:
-                    st.error("⚠️ Atenção! Existem questões pendentes no seu caderno.")
-                    st.write("**📋 Painel de Revisão Rápida:**")
-                    st.table(df_checagem)  # Tabela estática HTML (quebra texto e cabe no celular)
+                    st.error("⚠️ Existem questões em branco no seu caderno.")
+                    st.markdown("<span style='font-size: 14px; font-weight: 700; color: #333;'>📋 Painel de Revisão do Simulado</span>", unsafe_allow_html=True)
+                    st.dataframe(df_checagem, use_container_width=True, hide_index=True)
                 else:
                     st.session_state.confirmou_salvamento = True
 
-            # Confirmação de salvamento
             if st.session_state.get('confirmou_salvamento'):
                 st.write("---")
                 st.markdown("#### 💾 Deseja salvar este progresso no seu histórico?")
@@ -152,15 +150,6 @@ with aba_simulado:
                     st.session_state.corrigido = True
                     st.session_state.confirmou_salvamento = False
                     score_final = salvar_no_historico(st.session_state.topico_atual, st.session_state.nivel_atual, acertos, len(st.session_state.questoes))
-                    
-                    if score_final == 100:
-                        st.balloons()
-                        st.success("🏆 INCRÍVEL! Parabéns, você gabaritou com 100% de aproveitamento!")
-                    elif score_final >= 65:
-                        st.balloons()
-                        st.info("🎉 Você foi muito bem até aqui, mas pode melhorar ainda mais!")
-                    else:
-                        st.warning("Treino concluído! Revise as justificativas técnicas para alcançar os 65% na próxima tentativa.")
                     st.rerun()
                     
                 if col_btn2.button("❌ Não, Apenas Corrigir Sem Salvar"):
@@ -170,63 +159,22 @@ with aba_simulado:
     else:
         st.info("Nenhum simulado ativo. Monte a configuração na primeira aba para iniciar!")
 
-# --- ABA 3: PROGRESSO OTIMIZADA (100% MOBILE-FIRST) ---
+# --- ABA 3: PROGRESSO PROFISSIONAL WEB ---
 with aba_progresso:
     df = carregar_dados()
     
     if not df.empty:
         df['Score_Num'] = df['Score %'].str.replace('%','').astype(int)
         
-        # Painel de Metricas Principais
+        # Cálculo das métricas de desempenho geral
         media_geral = int(df['Score_Num'].mean())
-        col_m1, col_m2 = st.columns(2)
-        with col_m1:
-            st.metric(label="🎯 Média Geral", value=f"{media_geral}%")
-        with col_m2:
-            status_aprovacao = "Aprovada 🎉" if media_geral >= 65 else "Abaixo da Meta"
-            st.metric(label="🛡️ Certificação", value=status_aprovacao)
-            
-        st.write("---")
+        status_aprovacao = "Aprovado 🎉" if media_geral >= 65 else "Abaixo da Meta"
+        color_status = "#2E7D32" if media_geral >= 65 else "#C62828"
         
-        # --- TABELA 1: RENDIMENTO POR MÓDULO (HTML Estático Flutuante) ---
-        st.write("### 🏷️ Rendimento por Módulo")
-        df_modulos = df.groupby('Tema')['Score_Num'].mean().reset_index()
-        df_modulos.columns = ['Módulo', 'Média']
-        df_modulos['Média'] = df_modulos['Média'].round(0).astype(int).astype(str) + '%'
-        st.table(df_modulos)  # Força a adaptação ao espaço mobile impedindo barra de rolagem
-        
-        st.write("---")
-        
-        # --- SEÇÃO CRÍTICA (Nomes Completos e Visíveis) ---
-        st.write("### 🔍 Módulos que precisam de Atenção Urgente:")
-        medias_por_tema = df.groupby('Tema')['Score_Num'].mean().to_dict()
-        
-        recomenda_alertas = [f"⚠️ **{tema}** (Média Atual: {int(media)}%)" for tema, media in medias_por_tema.items() if media < 65]
-                
-        if recomenda_alertas:
-            for item in recomenda_alertas:
-                st.write(item)
-        else:
-            st.success("🔥 Excelente! Nenhum módulo cadastrado está abaixo da meta mínima de 65%.")
-
-        st.write("---")
-        
-        # --- EXIBIÇÃO EM ESTILO CARDS: DETALHES DOS TESTES (Sem data, sem dificuldade, sem rolagem) ---
-        st.write("### 📋 Detalhes dos Testes")
-        
-        # Inverte a ordem para os testes mais recentes ficarem no topo
-        df_invertido = df.copy().iloc[::-1]
-        
-        for _, row in df_invertido.iterrows():
-            status_badge = "💚 OK" if row['Score_Num'] >= 65 else "❤️ Rev"
-            
-            # Monta um container compactado estilo card de app mobile
-            with st.container(border=True):
-                c_mod, c_pct = st.columns([3, 1])
-                with c_mod:
-                    st.markdown(f"**{row['Tema']}**")
-                with c_pct:
-                    st.markdown(f"`{row['Score %']}` | {status_badge}")
-        
-    else:
-        st.info("O histórico está vazio. Faça um teste para ativar o painel!")
+        # KPI Único e Compacto (Evita poluir o mobile)
+        with st.container(border=True):
+            st.markdown(
+                f"""
+                <div style="text-align: center; padding: 2px;">
+                    <span style="font-size: 12px; color: #666; font-weight: 600; display:block; text-transform: uppercase; letter-spacing: 0.5px;">Média de Acertos Geral</span>
+                    <span style="font-size: 30px; font-weight: 800; color: #1E88E5; display: block; line-height: 1.1;">{media_geral}%</span>
