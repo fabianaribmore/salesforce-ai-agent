@@ -129,7 +129,7 @@ with aba_simulado:
                     st.write(q['explicacao'])
             st.markdown("---")
 
-        # --- BOTÃO DE FINALIZAÇÃO COM PAINEL DE REVISÃO SE NECESSÁRIO ---
+        # Fluxo de gatilho do botão de envio
         if not st.session_state.get('corrigido') and not st.session_state.get('confirmou_salvamento'):
             if st.button("🏁 Finalizar e Corrigir Simulado"):
                 total_questoes = len(st.session_state.questoes)
@@ -159,7 +159,7 @@ with aba_simulado:
                     st.session_state.confirmou_salvamento = True
                     st.rerun()
 
-        # --- JANELA DE CONFIRMAÇÃO RESTAURADA ---
+        # Confirmação explícita ativada
         if st.session_state.get('confirmou_salvamento'):
             st.markdown("#### 💾 Deseja salvar este progresso no seu histórico?")
             col_btn1, col_btn2 = st.columns(2)
@@ -197,31 +197,35 @@ with aba_progresso:
         
         st.markdown('<span style="font-size: 15px; font-weight: 700; color: #1E88E5;">📋 Módulos para Foco de Estudos</span>', unsafe_allow_html=True)
         
-        # Agrupamento matemático ponderado por acertos
+        # Agrupamento matemático ponderado
         df_modulos = df.groupby('Tema').agg({'Acertos': 'sum', 'Total': 'sum'}).reset_index()
         df_modulos.columns = ['Módulo', 'Total Acertos', 'Total Questões']
         
-        # Gera a taxa numérica e a string com o nome concatenado ao % solicitado
-        df_modulos['Taxa'] = (df_modulos['Total Acertos'] / df_modulos['Total Questões']).round(4)
-        df_modulos['Módulo Exame'] = df_modulos.apply(lambda r: f"📘 {r['Módulo']} ({int(r['Taxa']*100)}%)", axis=1)
+        # Cálculo do aproveitamento real
+        df_modulos['Porcentagem_Valor'] = ((df_modulos['Total Acertos'] / df_modulos['Total Questões']) * 100).astype(int)
+        df_modulos['Módulo Exame (Nota)'] = df_modulos.apply(lambda r: f"📘 {r['Módulo']} ({r['Porcentagem_Valor']}%)", axis=1)
         
-        # Ordena de forma inteligente para destacar primeiro os módulos de menor aproveitamento (foco de estudo urgente)
-        df_modulos = df_modulos.sort_values(by='Taxa', ascending=True)
+        # Função para determinar dinamicamente onde o aluno deve focar mais
+        def definir_prioridade(pct):
+            if pct < 65:
+                return "🚨 Alta Prioridade (Abaixo da Meta)"
+            elif pct < 80:
+                return "⚠️ Média Prioridade (Reforçar)"
+            return "✅ Baixa Prioridade (Revisão)"
+            
+        df_modulos['Prioridade de Estudo'] = df_modulos['Porcentagem_Valor'].apply(definir_prioridade)
         
-        # Renderização da tabela simplificada e unificada
+        # Ordena colocando os piores aproveitamentos (maior necessidade de foco) no topo
+        df_modulos = df_modulos.sort_values(by='Porcentagem_Valor', ascending=True)
+        
+        # Tabela simplificada e totalmente textual conforme solicitado
         st.dataframe(
-            df_modulos[['Módulo Exame', 'Taxa']], 
+            df_modulos[['Módulo Exame (Nota)', 'Prioridade de Estudo']], 
             use_container_width=True, 
             hide_index=True,
             column_config={
-                "Módulo Exame": st.column_config.TextColumn("Módulo do Exame (Sua Nota)", width="large"),
-                "Taxa": st.column_config.ProgressColumn(
-                    "Progresso Visual",
-                    help="Indicador gráfico do seu nível técnico",
-                    format=" ",
-                    min_value=0.0,
-                    max_value=1.0
-                )
+                "Módulo Exame (Nota)": st.column_config.TextColumn("Módulo do Exame e Seu Rendimento", width="large"),
+                "Prioridade de Estudo": st.column_config.TextColumn("Direcionamento / Foco do Aluno", width="medium")
             }
         )
         
