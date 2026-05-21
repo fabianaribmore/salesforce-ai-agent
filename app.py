@@ -1,36 +1,25 @@
 import streamlit as st
 import pandas as pd
 from openai import OpenAI
-import requests
-from bs4 import BeautifulSoup
 import json
 import os
 from datetime import datetime
 import zoneinfo
 
 # 1. Configuração da Página
-st.set_page_config(page_title="Simulado - Salesforce Admin", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="Simulado - Salesforce Administrator", page_icon="🛡️", layout="wide")
 
 # 2. Autenticação Segura
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # --- REQUISITOS DA PROVA SALESFORCE ADMIN (CRT-101) ---
-PESOS_MODULOS = {
-    "Configuração e Objetos (20%)": 20,
-    "Segurança e Acesso (14%)": 14,
-    "Automação de Processos/Flow (16%)": 16,
-    "Relatórios e Dashboards (10%)": 10,
-    "Guia Geral do Administrador": 40  
-}
-
-LINKS_CERTIFICACAO = {
-    "Configuração e Objetos (20%)": "https://help.salesforce.com/s/articleView?id=sf.dev_object_overview.htm&type=5",
-    "Segurança e Acesso (14%)": "https://help.salesforce.com/s/articleView?id=sf.security_overview.htm&type=5",
-    "Automação de Processos/Flow (16%)": "https://help.salesforce.com/s/articleView?id=sf.flow.htm&type=5",
-    "Relatórios e Dashboards (10%)": "https://help.salesforce.com/s/articleView?id=sf.reports_overview.htm&type=5",
-    "Guia Geral do Administrador": "https://help.salesforce.com/s/articleView?id=sf.admin_setup_guide.htm&type=5",
-    "Personalizado (Usar link do campo abaixo)": "Personalizado"
-}
+MODULOS_ADMIN = [
+    "Configuração e Objetos (20%)",
+    "Segurança e Acesso (14%)",
+    "Automação de Processos/Flow (16%)",
+    "Relatórios e Dashboards (10%)",
+    "Guia Geral do Administrador"
+]
 
 # --- FUNÇÕES DE APOIO ---
 def carregar_dados():
@@ -45,7 +34,6 @@ def salvar_no_historico(tema, dificuldade, pontos, total):
     data_atual = datetime.now(fuso_brasil).strftime("%d/%m/%Y %H:%M")
     
     score = int((pontos / total) * 100)
-    # Correção feita aqui: Removida a variável incorreta 'difficulty'
     novo_registro = pd.DataFrame([[data_atual, tema, dificuldade, pontos, total, f"{score}%"]], 
                                 columns=['Data', 'Tema', 'Dificuldade', 'Acertos', 'Total', 'Score %'])
     df_atual = carregar_dados()
@@ -53,41 +41,25 @@ def salvar_no_historico(tema, dificuldade, pontos, total):
     df_final.to_csv(arquivo, index=False)
     return score
 
-def extrair_texto_url(url):
-    try:
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(url, headers=headers, timeout=10)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        for script in soup(["script", "style"]):
-            script.extract()
-        texto = soup.get_text(separator=' ')
-        return " ".join(texto.split())[:5000]
-    except Exception as e:
-        st.error(f"Erro ao acessar a documentação: {e}")
-        return None
-
-def gerar_questoes_ia(tema, nivel, contexto_web):
-    base_info = f"Baseie-se neste conteúdo oficial da Salesforce: {contexto_web}" if contexto_web else "Use seu conhecimento geral de Salesforce."
-    
+def gerar_questoes_ia(tema, nivel):
     prompt = f"""
-    {base_info}
-    Gere exatamente 15 perguntas de múltipla escolha sobre Salesforce {tema}, nível {nivel}.
-    Foque em cenários práticos e realistas de prova de certificação Administrator (CRT-101).
+    Gere exatamente 15 perguntas de múltipla escolha sobre o módulo de Salesforce: {tema}, focado no nível {nivel}.
+    Os cenários devem ser práticos, realistas e alinhados com a prova oficial de certificação Salesforce Certified Administrator (CRT-101).
     Responda EXCLUSIVAMENTE em formato JSON estruturado:
     {{
       "perguntas": [
         {{
-          "pergunta": "Texto completa do cenário ou questão", 
+          "pergunta": "Texto completo do cenário ou questão", 
           "opcoes": ["A) Opção 1", "B) Opção 2", "C) Opção 3", "D) Opção 4"], 
           "correta": "A",
-          "explicacao": "Explicação detalhada do porquê esta alternativa está correta."
+          "explicacao": "Explicação detalhada do porquê esta alternativa está correta conforme as boas práticas da Salesforce."
         }}
       ]
     }}
     """
     response = client.chat.completions.create(
         model="gpt-4o-mini", 
-        messages=[{"role": "system", "content": "Você é um instrutor e avaliador sênior de certificações Salesforce."},
+        messages=[{"role": "system", "content": "Você é um instrutor e avaliador sênior especialista em certificações Salesforce."},
                   {"role": "user", "content": prompt}],
         response_format={ "type": "json_object" }
     )
@@ -95,24 +67,18 @@ def gerar_questoes_ia(tema, nivel, contexto_web):
     return dados.get('perguntas', [])[:15]
 
 # --- DESIGN PRINCIPAL ---
-st.markdown('<h2 style="font-size: 24px; margin-bottom: 10px;">🎓 Simulado - Salesforce Admin</h2>', unsafe_allow_html=True)
+st.markdown('<h2 style="font-size: 24px; margin-bottom: 15px;">🎓 Simulado - Salesforce Administrator</h2>', unsafe_allow_html=True)
 
 aba_config, aba_simulado, aba_progresso = st.tabs(["⚙️ Configurar", "🔥 Simulado", "📊 Meu Progresso"])
 
 # --- ABA 1: CONFIGURAÇÃO ---
 with aba_config:
-    st.write("### 🛠️ Configurar Novo Teste (15 Questões)")
-    
-    topico_selecionado = st.selectbox("Escolha o Tópico do Exame:", list(LINKS_CERTIFICACAO.keys()))
+    topico_selecionado = st.selectbox("Escolha o Tópico do Exame:", MODULOS_ADMIN)
     nivel = st.selectbox("Escolha o Nível de Dificuldade:", ["Iniciante", "Intermediário", "Especialista"])
-    url_manual = st.text_input("🔗 Link Avançado (Opcional):", placeholder="Cole um link do Help Salesforce...")
     
     if st.button("🚀 Gerar Simulado Completo"):
-        url_para_ler = url_manual if topico_selecionado == "Personalizado (Usar link do campo abaixo)" else LINKS_CERTIFICACAO[topico_selecionado]
-        
         with st.spinner("Construindo caderno com 15 questões exclusivas..."):
-            conteudo = extrair_texto_url(url_para_ler)
-            st.session_state.questoes = gerar_questoes_ia(topico_selecionado, nivel, conteudo)
+            st.session_state.questoes = gerar_questoes_ia(topico_selecionado, nivel)
             st.session_state.respostas_usuario = {}
             st.session_state.corrigido = False
             st.session_state.simulado_ativo = True
@@ -123,7 +89,7 @@ with aba_config:
 # --- ABA 2: O SIMULADO ---
 with aba_simulado:
     if st.session_state.get('simulado_ativo'):
-        st.write(f"### 📝 Prova Ativa: {st.session_state.get('topico_atual')}")
+        st.markdown(f"### 📝 Desafio Iniciado: {st.session_state.get('topico_atual')}")
         st.caption(f"Nível selecionado: {st.session_state.get('nivel_atual')} | Alvo para aprovação: 65%")
         st.write("---")
         
@@ -154,72 +120,70 @@ with aba_simulado:
                 
                 if score_final == 100:
                     st.balloons()
-                    st.toast("🏆 INCRÍVEL! Desempenho perfeito de 100%!", icon="🔥")
+                    st.success("🏆 INCRÍVEL! Parabéns, você gabaritou com 100% de aproveitamento!")
                 elif score_final >= 65:
                     st.balloons()
-                    st.toast("🎉 Parabéns! Você atingiu a meta de aprovação de 65%!", icon="✅")
+                    st.info("🎉 Você foi muito bem até aqui, mas pode melhorar ainda mais!")
                 else:
-                    st.toast("Treino concluído! Revise as justificativas para melhorar no próximo.", icon="📚")
+                    st.warning("Treino concluído! Revise as justificativas técnicas para alcançar os 65% na próxima tentativa.")
                 st.rerun()
     else:
         st.info("Nenhum simulado ativo. Monte a configuração na primeira aba para iniciar!")
 
-# --- ABA 3: PROGRESSO OTIMIZADA (MOBILE-FIRST) ---
+# --- ABA 3: PROGRESSO OTIMIZADA ---
 with aba_progresso:
-    st.write("### 📊 Gráficos de Evolução e Diagnóstico")
     df = carregar_dados()
     
     if not df.empty:
         df['Score_Num'] = df['Score %'].str.replace('%','').astype(int)
         
+        # Resumo de Status Principal
         media_geral = int(df['Score_Num'].mean())
         col_m1, col_m2 = st.columns(2)
         with col_m1:
-            st.metric(label="🎯 Sua Média Atual", value=f"{media_geral}%")
+            st.metric(label="🎯 Sua Média Geral", value=f"{media_geral}%")
         with col_m2:
             status_aprovacao = "Aprovada 🎉" if media_geral >= 65 else "Abaixo da Meta (Focar 65%)"
-            st.metric(label="🛡️ Status p/ Certificação", value=status_aprovacao)
+            st.metric(label="🛡️ Previsão p/ Certificação", value=status_aprovacao)
             
-        st.write("**Histórico de Rendimento por Prova:**")
-        st.line_chart(df.set_index('Data')['Score_Num'], height=200)
+        st.write("---")
+        
+        # --- TABELA 1: SCORE POR MÓDULO ---
+        st.write("### 🏷️ Desempenho Médio por Módulo:")
+        df_modulos = df.groupby('Tema')['Score_Num'].mean().reset_index()
+        df_modulos.columns = ['Módulo Acadêmico', 'Média de Acertos (%)']
+        df_modulos['Média de Acertos (%)'] = df_modulos['Média de Acertos (%)'].round(1).astype(str) + '%'
+        st.dataframe(df_modulos, use_container_width=True, hide_index=True)
         
         st.write("---")
         
-        st.write("### 🔍 Onde você precisa focar mais?")
+        # --- SEÇÃO CRÍTICA (FOCAR MAIS) ---
+        st.write("### 🔍 Módulos que precisam de Atenção Urgente:")
         medias_por_tema = df.groupby('Tema')['Score_Num'].mean().to_dict()
         
         recomendacoes_criticas = []
-        recomendacoes_boas = []
         
         for tema, media in medias_por_tema.items():
             if media < 65:
-                recomendacoes_criticas.append(f"🔴 **{tema}** (Média: {int(media)}%): Está abaixo dos 65% mínimos da prova. Priorize a leitura do guia oficial desse módulo!")
-            else:
-                recomendacoes_boas.append(f"🟢 **{tema}** (Média: {int(media)}%): Excelente! Você está mantendo a meta de aprovação.")
+                recomendacoes_criticas.append(f"🔴 **{tema}** (Média Atual: {int(media)}%): Está abaixo do mínimo exigido. Revise os conceitos fundamentais.")
                 
         if recomendacoes_criticas:
-            st.error("⚠️ **Módulos que precisam de Atenção Urgente:**")
             for item in recomendacoes_criticas:
                 st.write(item)
         else:
-            st.success("🔥 Impressionante! Todos os módulos testados até agora estão dentro ou acima da média de aprovação oficial!")
-            
-        if recomendacoes_boas:
-            st.write("**Módulos sob Controle:**")
-            for item in recomendacoes_boas:
-                st.write(item)
+            st.success("🔥 Ótimo sinal! Nenhum dos módulos testados está abaixo da linha crítica de corte.")
 
         st.write("---")
         
-        st.write("**📋 Detalhes dos Testes Realizados (Estilo Mobile):**")
-        for _, row in df.iloc[::-1].iterrows():
-            cor_borda = "💚" if int(row['Score %'].replace('%','')) >= 65 else "❤️"
-            with st.container():
-                st.markdown(f"""
-                {cor_borda} **{row['Tema']}**
-                * **Data/Hora:** {row['Data']} | **Dificuldade:** {row['Dificuldade']}
-                * **Pontuação:** {row['Acertos']} de {row['Total']} ({row['Score %']} de acertos)
-                """)
-                st.markdown("---")
+        # --- TABELA 2: HISTÓRICO DE SIMULADOS COMPACTO ---
+        st.write("### 📋 Detalhes dos Testes Realizados:")
+        
+        df_visual = df.copy()
+        df_visual['Status'] = df_visual['Score_Num'].apply(lambda x: "💚 Aprovado" if x >= 65 else "❤️ Revisar")
+        df_visual = df_visual[['Data', 'Tema', 'Dificuldade', 'Score %', 'Status']]
+        df_visual.columns = ['Data/Hora', 'Módulo Concluído', 'Dificuldade', 'Aproveitamento', 'Resultado']
+        
+        st.dataframe(df_visual.iloc[::-1], use_container_width=True, hide_index=True)
+        
     else:
-        st.info("O histórico está vazio. Faça seu primeiro simulado para gerar os dados de evolução!")
+        st.info("O histórico de evolução está vazio. Finalize o seu primeiro teste para alimentar o painel!")
