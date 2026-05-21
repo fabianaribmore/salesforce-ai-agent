@@ -14,10 +14,10 @@ client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # --- REQUISITOS DA PROVA SALESFORCE ADMIN (CRT-101) ---
 MODULOS_ADMIN = [
-    "Configuração e Objetos (20%)",
-    "Segurança e Acesso (14%)",
-    "Automação de Processos/Flow (16%)",
-    "Relatórios e Dashboards (10%)",
+    "Configuração e Objetos",
+    "Segurança e Acesso",
+    "Automação de Processos/Flow",
+    "Relatórios e Dashboards",
     "Guia Geral do Administrador"
 ]
 
@@ -33,7 +33,6 @@ def salvar_no_historico(tema, dificuldade, pontos, total):
     fuso_brasil = zoneinfo.ZoneInfo("America/Sao_Paulo")
     data_atual = datetime.now(fuso_brasil).strftime("%d/%m/%Y %H:%M")
     
-    # CÁLCULO REAL DE ACERTOS: Pontos obtidos dividido pelo total de questões do simulado
     score = int((pontos / total) * 100)
     novo_registro = pd.DataFrame([[data_atual, tema, dificuldade, pontos, total, f"{score}%"]], 
                                 columns=['Data', 'Tema', 'Dificuldade', 'Acertos', 'Total', 'Score %'])
@@ -44,12 +43,12 @@ def salvar_no_historico(tema, dificuldade, pontos, total):
 
 def gerar_questoes_ia(tema, nivel):
     prompt = f"""
-    Gere um caderno de testes COMPLETAMENTE ALEATÓRIO e INÉDITO contendo exatamente 10 perguntas de múltipla escolha sobre o módulo: {tema}.
+    Gere um caderno de testes COMPLETAMENTE ALEATÓRIO e INÉDITO contendo exatamente 15 perguntas de múltipla escolha sobre o módulo: {tema}.
     Nível de complexidade exigido: {nivel}.
     Mecânica de Alinhamento: Exame oficial Salesforce Certified Administrator (CRT-101).
     Importante: Varie os cenários de negócios, use diferentes objetos e requisitos práticos a cada execução para que o aluno nunca estude com o mesmo padrão.
     
-    Certifique-se de preencher rigorosamente todos os 10 objetos no array JSON.
+    Certifique-se de preencher rigorosamente todos os 15 objetos no array JSON.
     Responda EXCLUSIVAMENTE no formato JSON estruturado abaixo:
     {{
       "perguntas": [
@@ -64,13 +63,13 @@ def gerar_questoes_ia(tema, nivel):
     """
     response = client.chat.completions.create(
         model="gpt-4o-mini", 
-        messages=[{"role": "system", "content": "Você é um avaliador Salesforce dinâmico. Sua meta é criar 10 questões originais, variadas e nunca repetidas dentro do bloco JSON."},
+        messages=[{"role": "system", "content": "Você é um avaliador Salesforce dinâmico. Sua meta é criar 15 questões originais, variadas e nunca repetidas dentro do bloco JSON."},
                   {"role": "user", "content": prompt}],
         response_format={ "type": "json_object" },
         temperature=0.9
     )
     dados = json.loads(response.choices[0].message.content)
-    return dados.get('perguntas', [])[:10]
+    return dados.get('perguntas', [])[:15]
 
 # --- DESIGN PRINCIPAL ---
 st.markdown('<h2 style="font-size: 20px; margin-bottom: 12px; font-weight: 700; color: #1E88E5;">🛡️ Simulado - Salesforce Administrator</h2>', unsafe_allow_html=True)
@@ -83,7 +82,7 @@ with aba_config:
     nivel = st.selectbox("Escolha o Nível de Dificuldade:", ["Iniciante", "Intermediário", "Especialista"])
     
     if st.button("🚀 Gerar Simulado Completo"):
-        with st.spinner("Sorteando 10 questões inéditas..."):
+        with st.spinner("Sorteando 15 questões inéditas para o seu caderno..."):
             st.session_state.questoes = gerar_questoes_ia(topico_selecionado, nivel)
             st.session_state.respostas_usuario = {}
             st.session_state.corrigido = False
@@ -96,8 +95,8 @@ with aba_config:
 # --- ABA 2: O SIMULADO ---
 with aba_simulado:
     if st.session_state.get('simulado_ativo'):
-        st.markdown(f"### 📝 {st.session_state.get('topico_atual')}")
-        st.caption(f"Nível: {st.session_state.get('nivel_atual')} | Meta: 65%")
+        st.markdown(f"### 📝 Prova Ativa: {st.session_state.get('topico_atual')}")
+        st.caption(f"Nível selecionado: {st.session_state.get('nivel_atual')} | Alvo para aprovação: 65%")
         st.write("---")
         
         for i, q in enumerate(st.session_state.questoes):
@@ -119,32 +118,27 @@ with aba_simulado:
                     st.write(q['explicacao'])
             st.markdown("---")
 
-        # Zona de Validação Estilo Cruzeiro do Sul (Grid de Quadradinhos)
         if not st.session_state.get('corrigido'):
             if st.button("🏁 Finalizar e Corrigir Simulado"):
                 total_questoes = len(st.session_state.questoes)
                 
                 if len(st.session_state.respostas_usuario) < total_questoes:
-                    st.error("⚠️ Existem questões em branco no seu caderno.")
+                    st.error("⚠️ Atenção! Você não respondeu todas as questões do caderno.")
                     st.markdown("<span style='font-size: 14px; font-weight: 700; display:block; margin-bottom:10px;'>📋 Painel de Revisão do Simulado</span>", unsafe_allow_html=True)
                     
-                    grid_html = '<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">'
+                    grid_html = '<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; justify-content: flex-start;">'
                     for idx in range(total_questoes):
                         respondida = idx in st.session_state.respostas_usuario
-                        bg_color = "#2E7D32" if respondida else "#E0E0E0"
-                        text_color = "#FFFFFF" if respondida else "#666666"
+                        bg_color = "#2E7D32" if respondida else "#757575"
+                        text_color = "#FFFFFF"
                         
-                        grid_html += f"""
-                        <div style="width: 36px; height: 36px; background-color: {bg_color}; color: {text_color}; display: flex; align-items: center; justify-content: center; font-weight: 700; border-radius: 6px; font-size: 14px; box-shadow: inset 0 -2px 0 rgba(0,0,0,0.1);">
-                            {idx + 1}
-                        </div>
-                        """
+                        grid_html += f'<div style="width: 36px; height: 36px; background-color: {bg_color}; color: {text_color}; display: flex; align-items: center; justify-content: center; font-weight: 700; border-radius: 6px; font-size: 14px;">{idx + 1}</div>'
                     grid_html += '</div>'
                     
                     legenda_html = """
                     <div style="display: flex; gap: 15px; font-size: 11px; font-weight: 600; margin-bottom: 15px;">
                         <div style="display: flex; align-items: center; gap: 5px;"><div style="width: 12px; height: 12px; background-color: #2E7D32; border-radius: 3px;"></div> Respondida</div>
-                        <div style="display: flex; align-items: center; gap: 5px;"><div style="width: 12px; height: 12px; background-color: #E0E0E0; border-radius: 3px;"></div> Em Branco</div>
+                        <div style="display: flex; align-items: center; gap: 5px;"><div style="width: 12px; height: 12px; background-color: #757575; border-radius: 3px;"></div> Em Branco</div>
                     </div>
                     """
                     
@@ -177,11 +171,13 @@ with aba_progresso:
     df = carregar_dados()
     
     if not df.empty:
+        # Garante retrocompatibilidade limpando nomes antigos do banco que continham a string de % antiga
+        df['Tema'] = df['Tema'].str.replace(r'\s\(\d+%\)', '', regex=True)
         df['Score_Num'] = df['Score %'].str.replace('%','').astype(int)
         
         media_geral = int(df['Score_Num'].mean())
         status_aprovacao = "Aprovado 🎉" if media_geral >= 65 else "Abaixo da Meta"
-        color_status = "#2E7D32" if media_geral >= 65 else "#FFB300" # Cor amarela de alto contraste para Dark/Light mode
+        color_status = "#2E7D32" if media_geral >= 65 else "#FF6D00" 
         
         with st.container(border=True):
             st.markdown(
@@ -199,51 +195,26 @@ with aba_progresso:
             
         st.write("---")
         
-        st.markdown('<span style="font-size: 15px; font-weight: 700;">🏷️ Rendimento Médio por Módulo</span>', unsafe_allow_html=True)
-        df_modulos = df.groupby('Tema')['Score_Num'].mean().reset_index()
-        df_modulos.columns = ['Módulo', 'Aproveitamento']
-        df_modulos['Aproveitamento'] = df_modulos['Aproveitamento'].round(0).astype(int).astype(str) + '%'
-        st.dataframe(df_modulos, use_container_width=True, hide_index=True)
+        # AJUSTADO: Exibe a média real em formato de questões absolutas (ex: 11.5 de 15) em vez de porcentagem confusa
+        st.markdown('<span style="font-size: 15px; font-weight: 700;">🏷️ Rendimento Médio por Módulo (Média de Questões)</span>', unsafe_allow_html=True)
+        df_modulos = df.groupby('Tema').agg({'Acertos': 'mean', 'Total': 'mean'}).reset_index()
+        df_modulos.columns = ['Módulo', 'Média de Acertos', 'Total de Questões']
+        df_modulos['Rendimento Técnico'] = df_modulos['Média de Acertos'].round(1).astype(str) + " de " + df_modulos['Total de Questões'].astype(int).astype(str) + " acertos"
+        
+        st.dataframe(df_modulos[['Módulo', 'Rendimento Técnico']], use_container_width=True, hide_index=True)
         
         st.write("---")
         
-        # AJUSTE DE COR: Texto em Amarelo Âmbar de alta visibilidade tanto em telas pretas quanto brancas
-        st.markdown('<span style="font-size: 15px; font-weight: 700;">🔍 Atenção Urgente (Abaixo de 65%):</span>', unsafe_allow_html=True)
+        # AJUSTADO: Mostra puramente onde focar de forma direta e limpa, sem qualquer cálculo de porcentagem na tela
+        st.markdown('<span style="font-size: 15px; font-weight: 700;">🔍 Módulos que precisam de Atenção Urgente (Foco de Estudos):</span>', unsafe_allow_html=True)
         medias_por_tema = df.groupby('Tema')['Score_Num'].mean().to_dict()
-        temas_criticos = [f"⚠️ **{tema}** <span style='color:#FFB300; font-weight:700;'>({int(media)}%)</span>" for tema, media in medias_por_tema.items() if media < 65]
+        temas_criticos = [f"⚠️ **{tema}**" for tema, media in medias_por_tema.items() if media < 65]
                 
         if temas_criticos:
             for item in temas_criticos:
-                st.markdown(f"<div style='font-size:13px; margin-bottom:4px;'>{item}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='font-size:13px; margin-bottom:6px; color:#FF6D00;'>{item}</div>", unsafe_allow_html=True)
         else:
-            st.success("🔥 Excelente! Todos os módulos estão acima da meta de 65%.")
-
-        st.write("---")
-        
-        st.markdown('<span style="font-size: 15px; font-weight: 700; display:block; margin-bottom:8px;">📋 Detalhes dos Testes Realizados</span>', unsafe_allow_html=True)
-        df_invertido = df.copy().iloc[::-1]
-        
-        for _, row in df_invertido.iterrows():
-            is_aprovado = row['Score_Num'] >= 65
-            color_border = "#A5D6A7" if is_aprovado else "#EF9A9A"
-            color_badge = "#E8F5E9" if is_aprovado else "#FFEBEE"
-            color_txt = "#2E7D32" if is_aprovado else "#C62828"
-            status_text = "OK" if is_aprovado else "Rev"
-            
-            st.markdown(
-                f"""
-                <div style="border-left: 4px solid {color_border}; padding: 8px 12px; margin-bottom: 6px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #E0E0E0; border-right: 1px solid #E0E0E0; border-bottom: 1px solid #E0E0E0;">
-                    <div style="flex-grow: 1; padding-right: 8px;">
-                        <span style="font-size: 13px; font-weight: 600; display: block; line-height: 1.2;">{row['Tema']}</span>
-                        <span style="font-size: 10px; color: #888;">{row['Data']}</span>
-                    </div>
-                    <div style="background-color: {color_badge}; padding: 2px 8px; border-radius: 6px; min-width: 65px; text-align: center; border: 1px solid {color_border};">
-                        <span style="font-size: 12px; font-weight: 700; color: {color_txt};">{row['Score %']} | {status_text}</span>
-                    </div>
-                </div>
-                """, 
-                unsafe_allow_html=True
-            )
+            st.success("🔥 Excelente! Todos os módulos estão operando com desempenho seguro.")
         
     else:
         st.info("O histórico está vazio. Faça um teste para ativar o painel!")
