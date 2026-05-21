@@ -45,10 +45,9 @@ def salvar_no_historico(tema, dificuldade, pontos, total):
     data_atual = datetime.now(fuso_brasil).strftime("%d/%m/%Y %H:%M")
     
     score = int((pontos / total) * 100)
-    novo_registro = pd.DataFrame([[data_atual, tema, difficulty if 'difficulty' in locals() else dificuldade, pontos, total, f"{score}%"]], 
+    # Correção feita aqui: Removida a variável incorreta 'difficulty'
+    novo_registro = pd.DataFrame([[data_atual, tema, dificuldade, pontos, total, f"{score}%"]], 
                                 columns=['Data', 'Tema', 'Dificuldade', 'Acertos', 'Total', 'Score %'])
-    # Pequena correção preventiva caso o nome antigo escape
-    novo_registro.columns = ['Data', 'Tema', 'Dificuldade', 'Acertos', 'Total', 'Score %']
     df_atual = carregar_dados()
     df_final = pd.concat([df_atual, novo_registro], ignore_index=True)
     df_final.to_csv(arquivo, index=False)
@@ -70,7 +69,6 @@ def extrair_texto_url(url):
 def gerar_questoes_ia(tema, nivel, contexto_web):
     base_info = f"Baseie-se neste conteúdo oficial da Salesforce: {contexto_web}" if contexto_web else "Use seu conhecimento geral de Salesforce."
     
-    # Alterado o prompt explicitamente para pedir 15 questões
     prompt = f"""
     {base_info}
     Gere exatamente 15 perguntas de múltipla escolha sobre Salesforce {tema}, nível {nivel}.
