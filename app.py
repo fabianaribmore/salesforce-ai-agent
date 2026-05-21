@@ -14,12 +14,10 @@ st.set_page_config(page_title="Simulado - Salesforce Administrator", page_icon="
 st.markdown(
     """
     <style>
-    /* Força o container da tabela padrão a sumir caso ainda seja chamado */
     div[data-testid="stTable"] {
         width: 100% !important;
         overflow-x: hidden !important;
     }
-    /* Estilização para garantir que os blocos de Markdown usem o espaço ideal */
     .reportview-container .main .block-container {
         padding-top: 1rem !important;
         padding-bottom: 1rem !important;
@@ -72,7 +70,7 @@ def salvar_no_historico(tema, difficulty, pontos, total):
 
 def gerar_questoes_ia(tema, nivel):
     prompt = f"""
-    Gere um caderno de testes COMPLETAMENTE ALEATÓRIO e INÉDITO contendo exatamente 10 perguntas de múltikla escolha sobre o módulo: {tema}.
+    Gere um caderno de testes COMPLETAMENTE ALEATÓRIO e INÉDITO contendo exatamente 10 perguntas de múltipla escolha sobre o módulo: {tema}.
     Nível de complexidade exigido: {nivel}.
     Mecânica de Alinhamento: Exame oficial Salesforce Certified Administrator (CRT-101).
     Importante: Varie os cenários de negócios, use diferentes objetos e requisitos práticos a cada execução para que o aluno nunca estude com o mesmo padrão.
@@ -103,7 +101,7 @@ def gerar_questoes_ia(tema, nivel):
 # --- DESIGN PRINCIPAL ---
 st.markdown('<h2 style="font-size: 20px; margin-bottom: 12px; font-weight: 700; color: #1E88E5;">🛡️ Simulado - Salesforce Administrator</h2>', unsafe_allow_html=True)
 
-# Criação correta das abas na raiz do script
+# Criação das abas
 aba_config, aba_simulado, aba_progresso = st.tabs(["⚙️ Configurar", "🔥 Simulado", "📊 Meu Progresso"])
 
 # --- ABA 1: CONFIGURAÇÃO ---
@@ -140,4 +138,149 @@ with aba_simulado:
                 st.session_state.respostas_usuario[i] = resp[0]
 
             if st.session_state.get('corrigido'):
-                user_choice = st.session_state.respostas_usuario.get(i
+                user_choice = st.session_state.respostas_usuario.get(i)
+                if user_choice == q['correta']:
+                    st.success(f"✅ Correto! Gabarito: {q['correta']}")
+                else:
+                    st.error(f"❌ Errado. Sua resposta: {user_choice if user_choice else 'Nenhuma'}. Resposta Certa: {q['correta']}.")
+                with st.expander("💡 Ver Justificativa Técnica"):
+                    st.write(q['explicacao'])
+            st.markdown("---")
+
+        if not st.session_state.get('corrigido') and not st.session_state.get('confirmou_salvamento'):
+            if st.button("🏁 Finalizar e Corrigir Simulado"):
+                total_questoes = len(st.session_state.questoes)
+                
+                if len(st.session_state.respostas_usuario) < total_questoes:
+                    st.error("⚠️ Atenção! Você não respondeu todas as questões do caderno.")
+                    st.markdown("<span style='font-size: 14px; font-weight: 700; display:block; margin-bottom:10px;'>📋 Painel de Revisão do Simulado</span>", unsafe_allow_html=True)
+                    
+                    grid_html = '<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; justify-content: flex-start;">'
+                    for idx in range(total_questoes):
+                        respondida = idx in st.session_state.respostas_usuario
+                        bg_color = "#2E7D32" if respondida else "#757575"
+                        text_color = "#FFFFFF"
+                        
+                        grid_html += f'<div style="width: 36px; height: 36px; background-color: {bg_color}; color: {text_color}; display: flex; align-items: center; justify-content: center; font-weight: 700; border-radius: 6px; font-size: 14px;">{idx + 1}</div>'
+                    grid_html += '</div>'
+                    
+                    legenda_html = """
+                    <div style="display: flex; gap: 15px; font-size: 11px; font-weight: 600; margin-bottom: 15px;">
+                        <div style="display: flex; align-items: center; gap: 5px;"><div style="width: 12px; height: 12px; background-color: #2E7D32; border-radius: 3px;"></div> Respondida</div>
+                        <div style="display: flex; align-items: center; gap: 5px;"><div style="width: 12px; height: 12px; background-color: #757575; border-radius: 3px;"></div> Em Branco</div>
+                    </div>
+                    """
+                    st.markdown(grid_html, unsafe_allow_html=True)
+                    st.markdown(legenda_html, unsafe_allow_html=True)
+                else:
+                    st.session_state.confirmou_salvamento = True
+                    st.rerun()
+
+        if st.session_state.get('confirmou_salvamento'):
+            st.markdown("#### 💾 Deseja salvar este progresso no seu histórico?")
+            col_btn1, col_btn2 = st.columns(2)
+            
+            if col_btn1.button("✅ Sim, Salvar e Corrigir"):
+                acertos = sum(1 for i, q in enumerate(st.session_state.questoes) if st.session_state.respostas_usuario.get(i) == q['correta'])
+                salvar_no_historico(st.session_state.topico_atual, st.session_state.nivel_atual, acertos, len(st.session_state.questoes))
+                st.session_state.corrigido = True
+                st.session_state.confirmou_salvamento = False
+                st.rerun()
+                
+            if col_btn2.button("❌ Não, Apenas Corrigir Sem Salvar"):
+                st.session_state.corrigido = True
+                st.session_state.confirmou_salvamento = False
+                st.rerun()
+    else:
+        st.info("Nenhum simulado ativo. Monte a configuração na primeira aba para iniciar!")
+
+# --- ABA 3: PROGRESSO SUCESSO SEM TABELAS (CONCEITO CARDS) ---
+with aba_progresso:
+    df = carregar_dados()
+    
+    if not df.empty:
+        df['Tema'] = df['Tema'].apply(lambda x: re.sub(r'\s*\(\d+%\)\s*', '', str(x)).strip())
+        df['Score_Num'] = df['Score %'].astype(str).str.replace('%','').astype(int)
+        
+        media_geral = int(df['Score_Num'].mean())
+        status_aprovacao = "Aprovado 🎉" if media_geral >= 65 else "Abaixo da Meta"
+        
+        col_kpi1, col_kpi2 = st.columns([1, 2])
+        with col_kpi1:
+            st.metric(label="Média Geral de Acertos", value=f"{media_geral}%", delta=status_aprovacao, delta_color="normal" if media_geral >= 65 else "inverse")
+        
+        st.write("---")
+        
+        st.markdown('<span style="font-size: 16px; font-weight: 700; color: #1E88E5; display: block; margin-bottom: 16px;">📋 Diagnóstico de Desempenho por Tópico</span>', unsafe_allow_html=True)
+        
+        # Agrupamento e cálculo
+        df_modulos = df.groupby('Tema').agg({'Acertos': 'sum', 'Total': 'sum'}).reset_index()
+        df_modulos.columns = ['Módulo', 'Total Acertos', 'Total Questões']
+        df_modulos['Porcentagem_Valor'] = ((df_modulos['Total Acertos'] / df_modulos['Total Questões']) * 100).astype(int)
+        
+        # Ordenação: Menor rendimento no topo (foco de estudo)
+        df_modulos = df_modulos.sort_values(by='Porcentagem_Valor', ascending=True)
+        
+        # Criação visual baseada em Cards Móbile
+        for idx, row in df_modulos.iterrows():
+            pct = row['Porcentagem_Valor']
+            modulo_nome = row['Módulo']
+            
+            # Definições curtas para evitar quebra de texto em telas pequenas
+            if pct < 50:
+                texto_acao = "Prioridade Alta"
+                cor_badge = "#D32F2F"   # Vermelho
+                cor_fundo = "#FFEBEE"
+            elif pct < 65:
+                texto_acao = "Ajustes Finais"
+                cor_badge = "#F57C00"   # Laranja
+                cor_fundo = "#FFF3E0"
+            elif pct < 80:
+                texto_acao = "Meta Atingida"
+                cor_badge = "#388E3C"   # Verde
+                cor_fundo = "#E8F5E9"
+            else:
+                texto_acao = "Excelente"
+                cor_badge = "#1976D2"   # Azul Premium
+                cor_fundo = "#E3F2FD"
+            
+            # HTML customizado fluido e responsivo para celulares
+            card_html = f"""
+            <div style="
+                background-color: transparent;
+                border-bottom: 1px solid #E0E0E0;
+                padding: 12px 4px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 10px;
+             border-radius: 0px;">
+                <div style="flex: 1;">
+                    <div style="font-size: 14px; font-weight: 600; color: #333333; line-height: 1.3;">
+                        {modulo_nome}
+                    </div>
+                    <div style="font-size: 12px; color: #666666; margin-top: 2px;">
+                        Aproveitamento atual: <strong>{pct}%</strong>
+                    </div>
+                </div>
+                <div style="
+                    background-color: {cor_fundo};
+                    color: {cor_badge};
+                    font-size: 11px;
+                    font-weight: 700;
+                    padding: 5px 10px;
+                    border-radius: 12px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    white-space: nowrap;
+                    text-align: center;
+                    border: 1px solid {cor_badge}40;
+                ">
+                    {texto_acao}
+                </div>
+            </div>
+            """
+            st.markdown(card_html, unsafe_allow_html=True)
+            
+    else:
+        st.info("O histórico está vazio. Faça um teste para ativar o painel!")
