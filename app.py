@@ -23,19 +23,19 @@ st.markdown(
         padding-bottom: 1rem !important;
     }
     
-    /* Caixa de feedback adaptável para Erros - Funciona perfeitamente em Light e Dark */
+    /* Caixa de feedback adaptável para Erros - Sem usar o vermelho antigo apagado */
     .feedback-erro-container {
         padding: 14px;
         margin: 12px 0px;
         border-radius: 8px;
-        background-color: rgba(211, 47, 47, 0.08);
-        border: 1.5px solid #FF5252;
+        background-color: rgba(255, 110, 64, 0.1);
+        border: 1.5px solid #FF6E40;
         color: var(--text-color);
         font-size: 14px;
         font-weight: 500;
     }
     .feedback-erro-destaque {
-        color: #FF5252;
+        color: #FF6E40;
         font-weight: 700;
     }
     </style>
@@ -158,12 +158,12 @@ with aba_simulado:
                 if user_choice == q['correta']:
                     st.success(f"✅ Correto! Gabarito: {q['correta']}")
                 else:
-                    # ALTERADO: Caixa de erro limpa, legível no branco e no escuro sem sumir
+                    # ALTERADO: Caixa de erro reestruturada com Coral de alto contraste
                     html_erro = f"""
                     <div class="feedback-erro-container">
-                        <span class="feedback-erro-destaque">❌ Errado.</span> 
-                        Sua resposta: {user_choice if user_choice else 'Nenhuma'} &nbsp;|&nbsp; 
-                        Gabarito Correto: <span style="font-weight: 700; color: #66BB6A;">{q['correta']}</span>
+                        <span class="feedback-erro-destaque">❌ Incorreto.</span> 
+                        Sua escolha: {user_choice if user_choice else 'Nenhuma'} &nbsp;|&nbsp; 
+                        Gabarito Recomendado: <span style="font-weight: 700; color: #00E676;">{q['correta']}</span>
                     </div>
                     """
                     st.markdown(html_erro, unsafe_allow_html=True)
@@ -219,7 +219,7 @@ with aba_simulado:
     else:
         st.info("Nenhum simulado ativo. Monte a configuração na primeira aba para iniciar!")
 
-# --- ABA 3: PROGRESSO TOTALMENTE ADAPTÁVEL ---
+# --- ABA 3: PROGRESSO TOTALMENTE ADAPTÁVEL (LIGHT / DARK CORRIGIDO) ---
 with aba_progresso:
     df = carregar_dados()
     
@@ -248,25 +248,25 @@ with aba_progresso:
             pct = row['Porcentagem_Valor']
             modulo_nome = row['Módulo']
             
-            # ALTERADO: Paleta de cores com transparência inteligente de fundo e bordas vivas para legibilidade absoluta
+            # ALTERADO: Substituído o antigo vermelho por Laranja/Coral sólido com letras brancas (Legibilidade Máxima)
             if pct < 50:
                 texto_acao = "Prioridade Alta"
-                cor_primaria = "#FF5252"  # Vermelho claro acessível
-                cor_fundo_badge = "rgba(255, 82, 82, 0.15)"
+                cor_fundo_badge = "#FF6E40"  # Coral Vibrante de alto contraste
+                cor_texto_pct = "#FF9E80"    # Tom suave para destacar a porcentagem no escuro
             elif pct < 65:
                 texto_acao = "Ajustes Finais"
-                cor_primaria = "#FF9100"  # Laranja claro acessível
-                cor_fundo_badge = "rgba(255, 145, 0, 0.15)"
+                cor_fundo_badge = "#FFAB40"  # Âmbar/Laranja
+                cor_texto_pct = "#FFD180"     
             elif pct < 80:
                 texto_acao = "Meta Atingida"
-                cor_primaria = "#00E676"  # Verde claro acessível
-                cor_fundo_badge = "rgba(0, 230, 118, 0.15)"
+                cor_fundo_badge = "#2E7D32"  # Verde Sólido Seguro
+                cor_texto_pct = "#B9F6CA"     
             else:
                 texto_acao = "Excelente"
-                cor_primaria = "#40C4FF"  # Azul claro acessível
-                cor_fundo_badge = "rgba(64, 196, 255, 0.15)"
+                cor_fundo_badge = "#1565C0"  # Azul Royal de Alta Visibilidade
+                cor_texto_pct = "#80D8FF"     
             
-            # Layout em HTML usando var(--text-color) para os títulos de módulos acompanharem o tema perfeitamente
+            # Layout em HTML usando var(--text-color) para os títulos acompanharem o tema automaticamente
             card_html = f"""
             <div style="
                 background-color: transparent;
@@ -281,22 +281,22 @@ with aba_progresso:
                     <div style="font-size: 15px; font-weight: 600; color: var(--text-color); line-height: 1.3;">
                         {modulo_nome}
                     </div>
-                    <div style="font-size: 13px; color: var(--text-color); opacity: 0.8; margin-top: 4px;">
-                        Aproveitamento: <strong style="color: {cor_primaria}; font-size: 14px;">{pct}%</strong>
+                    <div style="font-size: 13px; color: var(--text-color); opacity: 0.85; margin-top: 4px;">
+                        Aproveitamento: <strong style="color: {cor_texto_pct}; font-size: 14px; font-weight: 700;">{pct}%</strong>
                     </div>
                 </div>
                 <div style="
                     background-color: {cor_fundo_badge};
-                    color: {cor_primaria};
-                    border: 1px solid {cor_primaria};
+                    color: #FFFFFF !important;
                     font-size: 11px;
                     font-weight: 700;
-                    padding: 5px 12px;
-                    border-radius: 4px;
+                    padding: 6px 14px;
+                    border-radius: 6px;
                     text-transform: uppercase;
-                    letter-spacing: 0.5px;
+                    letter-spacing: 0.6px;
                     white-space: nowrap;
                     text-align: center;
+                    box-shadow: 0px 1px 2px rgba(0,0,0,0.15);
                 ">
                     {texto_acao}
                 </div>
