@@ -42,7 +42,6 @@ def salvar_no_historico(tema, dificuldade, pontos, total):
     return score
 
 def gerar_questoes_ia(tema, nivel):
-    # AJUSTADO: Voltando estritamente para 10 questões
     prompt = f"""
     Gere um caderno de testes COMPLETAMENTE ALEATÓRIO e INÉDITO contendo exatamente 10 perguntas de múltipla escolha sobre o módulo: {tema}.
     Nível de complexidade exigido: {nivel}.
@@ -97,17 +96,4 @@ with aba_config:
 with aba_simulado:
     if st.session_state.get('simulado_ativo'):
         st.markdown(f"### 📝 Prova Ativa: {st.session_state.get('topico_atual')}")
-        st.caption(f"Nível selecionado: {st.session_state.get('nivel_atual')} | Alvo para aprovação: 65%")
-        st.write("---")
-        
-        for i, q in enumerate(st.session_state.questoes):
-            st.markdown(f"##### **Questão {i+1} de {len(st.session_state.questoes)}**")
-            st.write(q['pergunta'])
-            
-            resp = st.radio(f"Selecione a resposta para a Q{i+1}:", q['opcoes'], key=f"q_{i}", index=None, disabled=st.session_state.get('corrigido', False))
-            
-            if resp:
-                st.session_state.respostas_usuario[i] = resp[0]
-
-            if st.session_state.get('corrigido'):
-                user_choice = st.session
+        st
