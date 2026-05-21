@@ -43,23 +43,27 @@ def salvar_no_historico(tema, dificuldade, pontos, total):
 
 def gerar_questoes_ia(tema, nivel):
     prompt = f"""
-    Gere exatamente 15 perguntas de múltipla escolha sobre o módulo de Salesforce: {tema}, focado no nível {nivel}.
-    Os cenários devem ser práticos, realistas e alinhados com a prova oficial de certificação Salesforce Certified Administrator (CRT-101).
-    Responda EXCLUSIVAMENTE em formato JSON estruturado:
+    Crie OBRIGATORIAMENTE um caderno com exatamente 15 perguntas inéditas de múltipla escolha sobre o módulo: {tema}.
+    Nível de complexidade das questões: {nivel}.
+    Alinhamento obrigatório: Matriz de competências da prova Salesforce Certified Administrator (CRT-101).
+    Foque em situações-problema do cotidiano de um administrador.
+    
+    Não termine a geração antes de preencher todos os 15 objetos no array JSON.
+    Responda EXCLUSIVAMENTE no formato JSON estruturado abaixo:
     {{
       "perguntas": [
         {{
           "pergunta": "Texto completo do cenário ou questão", 
           "opcoes": ["A) Opção 1", "B) Opção 2", "C) Opção 3", "D) Opção 4"], 
-          "correta": "A",
-          "explicacao": "Explicação detalhada do porquê esta alternativa está correta conforme as boas práticas da Salesforce."
+          "correta": "A/B/C/D",
+          "explicacao": "Explicação detalhada alinhada às boas práticas oficiais Salesforce."
         }}
       ]
     }}
     """
     response = client.chat.completions.create(
         model="gpt-4o-mini", 
-        messages=[{"role": "system", "content": "Você é um instrutor e avaliador sênior especialista em certificações Salesforce."},
+        messages=[{"role": "system", "content": "Você é um gerador automatizado rigoroso. Sua principal diretriz é entregar exatamente 15 blocos válidos de perguntas dentro do array JSON, sem omitir ou cortar nenhum registro por falta de espaço."},
                   {"role": "user", "content": prompt}],
         response_format={ "type": "json_object" }
     )
@@ -90,7 +94,7 @@ with aba_config:
 # --- ABA 2: O SIMULADO ---
 with aba_simulado:
     if st.session_state.get('simulado_ativo'):
-        st.markdown(f"### 📝 Desafio Iniciado: {st.session_state.get('topico_atual')}")
+        st.markdown(f"### 📝 {st.session_state.get('topico_atual')}")
         st.caption(f"Nível: {st.session_state.get('nivel_atual')} | Meta: 65%")
         st.write("---")
         
@@ -117,24 +121,27 @@ with aba_simulado:
         if not st.session_state.get('corrigido'):
             if st.button("🏁 Finalizar e Corrigir Simulado"):
                 total_questoes = len(st.session_state.questoes)
-                respondidas = list(st.session_state.respostas_usuario.keys())
                 
-                # Verifica se há pendências
-                if len(respondidas) < total_questoes:
-                    st.error("⚠️ Atenção! Você não respondeu todas as questões do caderno.")
-                    
-                    # Cria listas de amostragem no final da tela
-                    col_res_1, col_res_2 = st.columns(2)
-                    with col_res_1:
-                        ok_list = [f"Questão {idx+1}" for idx in respondidas]
-                        st.info(f"**Respondidas ({len(respondidas)}):**\n" + (", ".join(ok_list) if ok_list else "Nenhuma"))
-                    with col_res_2:
-                        falta_list = [f"Questão {idx+1}" for idx in range(total_questoes) if idx not in respondidas]
-                        st.warning(f"**Faltam Responder ({len(falta_list)}):**\n" + ", ".join(falta_list))
+                # Gerar dados para a tabela estática de checagem interna
+                status_respostas = []
+                for idx in range(total_questoes):
+                    num_questao = f"Questão {idx+1}"
+                    status_respostas.append({
+                        "Item": num_questao, 
+                        "Situação": "✅ OK" if idx in st.session_state.respostas_usuario else "❌ EM BRANCO"
+                    })
+                
+                df_checagem = pd.DataFrame(status_respostas)
+                
+                # Bloqueia se houver pendências
+                if len(st.session_state.respostas_usuario) < total_questoes:
+                    st.error("⚠️ Atenção! Existem questões pendentes no seu caderno.")
+                    st.write("**📋 Painel de Revisão Rápida:**")
+                    st.table(df_checagem)  # Tabela estática HTML (quebra texto e cabe no celular)
                 else:
                     st.session_state.confirmou_salvamento = True
 
-            # Caixa de confirmação de salvamento (Aparece se passou no teste de preenchimento)
+            # Confirmação de salvamento
             if st.session_state.get('confirmou_salvamento'):
                 st.write("---")
                 st.markdown("#### 💾 Deseja salvar este progresso no seu histórico?")
@@ -163,14 +170,14 @@ with aba_simulado:
     else:
         st.info("Nenhum simulado ativo. Monte a configuração na primeira aba para iniciar!")
 
-# --- ABA 3: PROGRESSO OTIMIZADA (MOBILE-FIRST) ---
+# --- ABA 3: PROGRESSO OTIMIZADA (100% MOBILE-FIRST) ---
 with aba_progresso:
     df = carregar_dados()
     
     if not df.empty:
         df['Score_Num'] = df['Score %'].str.replace('%','').astype(int)
         
-        # Resumo de Status Principal (Métricas Compactas)
+        # Painel de Metricas Principais
         media_geral = int(df['Score_Num'].mean())
         col_m1, col_m2 = st.columns(2)
         with col_m1:
@@ -181,38 +188,45 @@ with aba_progresso:
             
         st.write("---")
         
-        # --- TABELA 1: RENDIMENTO POR MÓDULO (Compacta) ---
+        # --- TABELA 1: RENDIMENTO POR MÓDULO (HTML Estático Flutuante) ---
         st.write("### 🏷️ Rendimento por Módulo")
         df_modulos = df.groupby('Tema')['Score_Num'].mean().reset_index()
         df_modulos.columns = ['Módulo', 'Média']
         df_modulos['Média'] = df_modulos['Média'].round(0).astype(int).astype(str) + '%'
-        st.dataframe(df_modulos, use_container_width=True, hide_index=True)
+        st.table(df_modulos)  # Força a adaptação ao espaço mobile impedindo barra de rolagem
         
         st.write("---")
         
-        # --- SEÇÃO CRÍTICA ULTRA COMPACTA (Evita quebra no celular) ---
-        st.write("### 🔍 Atenção Urgente:")
+        # --- SEÇÃO CRÍTICA (Nomes Completos e Visíveis) ---
+        st.write("### 🔍 Módulos que precisam de Atenção Urgente:")
         medias_por_tema = df.groupby('Tema')['Score_Num'].mean().to_dict()
         
-        temas_criticos = [f"⚠️ {tema[:18]}... ({int(media)}%)" for tema, media in medias_por_tema.items() if media < 65]
+        recomenda_alertas = [f"⚠️ **{tema}** (Média Atual: {int(media)}%)" for tema, media in medias_por_tema.items() if media < 65]
                 
-        if temas_criticos:
-            for item in temas_criticos:
+        if recomenda_alertas:
+            for item in recomenda_alertas:
                 st.write(item)
         else:
-            st.success("🔥 Todos os módulos estão acima da média!")
+            st.success("🔥 Excelente! Nenhum módulo cadastrado está abaixo da meta mínima de 65%.")
 
         st.write("---")
         
-        # --- TABELA 2: HISTÓRICO DE SIMULADOS ENXUTO (Sem data e sem dificuldade) ---
+        # --- EXIBIÇÃO EM ESTILO CARDS: DETALHES DOS TESTES (Sem data, sem dificuldade, sem rolagem) ---
         st.write("### 📋 Detalhes dos Testes")
         
-        df_visual = df.copy()
-        df_visual['Resultado'] = df_visual['Score_Num'].apply(lambda x: "💚 OK" if x >= 65 else "❤️ Rev")
-        df_visual = df_visual[['Tema', 'Score %', 'Resultado']]
-        df_visual.columns = ['Módulo', 'Aproveitamento', 'Status']
+        # Inverte a ordem para os testes mais recentes ficarem no topo
+        df_invertido = df.copy().iloc[::-1]
         
-        st.dataframe(df_visual.iloc[::-1], use_container_width=True, hide_index=True)
+        for _, row in df_invertido.iterrows():
+            status_badge = "💚 OK" if row['Score_Num'] >= 65 else "❤️ Rev"
+            
+            # Monta um container compactado estilo card de app mobile
+            with st.container(border=True):
+                c_mod, c_pct = st.columns([3, 1])
+                with c_mod:
+                    st.markdown(f"**{row['Tema']}**")
+                with c_pct:
+                    st.markdown(f"`{row['Score %']}` | {status_badge}")
         
     else:
         st.info("O histórico está vazio. Faça um teste para ativar o painel!")
