@@ -86,7 +86,7 @@ def salvar_no_historico(tema, difficulty, pontos, total):
 
 def gerar_questoes_ia(tema, nivel):
     prompt = f"""
-    Gere um caderno de testes COMPLETAMENTE ALEATÓRIO e INÉDITO contendo exatamente 10 perguntas de múltikla escolha sobre o módulo: {tema}.
+    Gere um caderno de testes COMPLETAMENTE ALEATÓRIO e INÉDITO contendo exatamente 10 perguntas de múltipla escolha sobre o módulo: {tema}.
     Nível de complexidade exigido: {nivel}.
     Mecânica de Alinhamento: Exame oficial Salesforce Certified Administrator (CRT-101).
     Importante: Varie os cenários de negócios, use diferentes objetos e requisitos práticos a cada execução para que o aluno nunca estude com o mesmo padrão.
@@ -158,7 +158,6 @@ with aba_simulado:
                 if user_choice == q['correta']:
                     st.success(f"✅ Correto! Gabarito: {q['correta']}")
                 else:
-                    # Caixa de erro neutra que segue a cor do tema do usuário automaticamente
                     html_erro = f"""
                     <div class="feedback-erro-container">
                         <span class="feedback-erro-destaque">⚠️ Incorreto.</span> 
@@ -219,7 +218,7 @@ with aba_simulado:
     else:
         st.info("Nenhum simulado ativo. Monte a configuração na primeira aba para iniciar!")
 
-# --- ABA 3: PROGRESSO COM LEITURA ADAPTÁVEL BASEADA NO TEMA ---
+# --- ABA 3: PROGRESSO COM AJUSTE DE CONTRASTE EXCLUSIVO ---
 with aba_progresso:
     df = carregar_dados()
     
@@ -248,19 +247,21 @@ with aba_progresso:
             pct = row['Porcentagem_Valor']
             modulo_nome = row['Módulo']
             
-            # CONFIGURAÇÃO DE CORES: Amarelinho para Prioridade Alta e Verde para Meta Atingida
+            # CONFIGURAÇÃO DE CORES DAS CAIXAS
             if pct < 65:
                 texto_acao = "Prioridade Alta"
-                cor_fundo_badge = "#FBC02D"  # Amarelo equilibrado e visível
+                cor_fundo_badge = "#FBC02D"  # Amarelo equilibrado
+                cor_texto_badge = "var(--text-color)" # Texto adaptável (Preto no light, Branco no dark)
             elif pct < 80:
                 texto_acao = "Meta Atingida"
-                cor_fundo_badge = "#2E7D32"  # Verde focado em aprovação
+                cor_fundo_badge = "#2E7D32"  # Verde escuro cirúrgico
+                cor_texto_badge = "#FFFFFF"   # ALTERADO: Sempre letra BRANCA para contraste perfeito com o verde
             else:
                 texto_acao = "Excelente"
                 cor_fundo_badge = "#1565C0"  # Azul tecnológico
+                cor_texto_badge = "#FFFFFF"   # Sempre branca no azul
             
-            # HTML Dinâmico: usa var(--text-color) tanto na porcentagem quanto no texto do botão 
-            # Garantindo Branco no tema escuro e Preto no tema claro!
+            # HTML Dinâmico mantendo as porcentagens adaptáveis e o botão de meta atingida fixado em branco
             card_html = f"""
             <div style="
                 background-color: transparent;
@@ -281,7 +282,7 @@ with aba_progresso:
                 </div>
                 <div style="
                     background-color: {cor_fundo_badge};
-                    color: var(--text-color) !important;
+                    color: {cor_texto_badge} !important;
                     font-size: 11px;
                     font-weight: 700;
                     padding: 6px 14px;
