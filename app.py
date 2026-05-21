@@ -10,6 +10,29 @@ import re
 # 1. Configuração da Página
 st.set_page_config(page_title="Simulado - Salesforce Administrator", page_icon="🛡️", layout="wide")
 
+# --- CSS CUSTOMIZADO PARA RESPONSIVIDADE MOBILE AUTOMÁTICA ---
+st.markdown(
+    """
+    <style>
+    /* Força tabelas e dataframes a quebrarem linha e reduz padding para caber no celular */
+    div[data-testid="stDataFrame"] table {
+        width: 100% !important;
+    }
+    div[data-testid="stDataFrame"] td, div[data-testid="stDataFrame"] th {
+        white-space: normal !important;
+        word-wrap: break-word !important;
+        font-size: 13px !important;
+        padding: 6px 8px !important;
+    }
+    /* Ajusta blocos de métricas para telas pequenas */
+    div[data-testid="stMetric"] {
+        padding: 5px !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # 2. Autenticação Segura
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
@@ -38,13 +61,13 @@ def carregar_dados():
         return pd.read_csv(arquivo)
     return pd.DataFrame(columns=['Data', 'Tema', 'Dificuldade', 'Acertos', 'Total', 'Score %'])
 
-def salvar_no_historico(tema, dificuldade, pontos, total):
+def salvar_no_historico(tema, difficulty, pontos, total):
     arquivo = 'historico_simulados.csv'
     fuso_brasil = zoneinfo.ZoneInfo("America/Sao_Paulo")
     data_atual = datetime.now(fuso_brasil).strftime("%d/%m/%Y %H:%M")
     
     score = int((pontos / total) * 100)
-    novo_registro = pd.DataFrame([[data_atual, tema, dificuldade, pontos, total, f"{score}%"]], 
+    novo_registro = pd.DataFrame([[data_atual, tema, difficulty, pontos, total, f"{score}%"]], 
                                 columns=['Data', 'Tema', 'Dificuldade', 'Acertos', 'Total', 'Score %'])
     df_atual = carregar_dados()
     df_final = pd.concat([df_atual, novo_registro], ignore_index=True)
@@ -129,7 +152,6 @@ with aba_simulado:
                     st.write(q['explicacao'])
             st.markdown("---")
 
-        # Fluxo de gatilho do botão de envio
         if not st.session_state.get('corrigido') and not st.session_state.get('confirmou_salvamento'):
             if st.button("🏁 Finalizar e Corrigir Simulado"):
                 total_questoes = len(st.session_state.questoes)
@@ -159,7 +181,6 @@ with aba_simulado:
                     st.session_state.confirmou_salvamento = True
                     st.rerun()
 
-        # Confirmação explícita ativada
         if st.session_state.get('confirmou_salvamento'):
             st.markdown("#### 💾 Deseja salvar este progresso no seu histórico?")
             col_btn1, col_btn2 = st.columns(2)
@@ -197,35 +218,32 @@ with aba_progresso:
         
         st.markdown('<span style="font-size: 15px; font-weight: 700; color: #1E88E5;">📋 Módulos para Foco de Estudos</span>', unsafe_allow_html=True)
         
-        # Agrupamento matemático ponderado
+        # Agrupamento matemático correto
         df_modulos = df.groupby('Tema').agg({'Acertos': 'sum', 'Total': 'sum'}).reset_index()
         df_modulos.columns = ['Módulo', 'Total Acertos', 'Total Questões']
         
-        # Cálculo do aproveitamento real
         df_modulos['Porcentagem_Valor'] = ((df_modulos['Total Acertos'] / df_modulos['Total Questões']) * 100).astype(int)
-        df_modulos['Módulo Exame (Nota)'] = df_modulos.apply(lambda r: f"📘 {r['Módulo']} ({r['Porcentagem_Valor']}%)", axis=1)
+        df_modulos['Módulo do Exame'] = df_modulos.apply(lambda r: f"📘 {r['Módulo']} ({r['Porcentagem_Valor']}%)", axis=1)
         
-        # Função para determinar dinamicamente onde o aluno deve focar mais
-        def definir_prioridade(pct):
+        # Lógica de direcionamento textual compacta e direta para mobile
+        def definir_direcionamento(pct):
             if pct < 65:
-                return "🚨 Alta Prioridade (Abaixo da Meta)"
-            elif pct < 80:
-                return "⚠️ Média Prioridade (Reforçar)"
-            return "✅ Baixa Prioridade (Revisão)"
+                return "Abaixo da Meta"
+            return "Focar Mais"
             
-        df_modulos['Prioridade de Estudo'] = df_modulos['Porcentagem_Valor'].apply(definir_prioridade)
+        df_modulos['Direcionamento'] = df_modulos['Porcentagem_Valor'].apply(definir_direcionamento)
         
-        # Ordena colocando os piores aproveitamentos (maior necessidade de foco) no topo
+        # Ordenação inteligente: menores aproveitamentos primeiro
         df_modulos = df_modulos.sort_values(by='Porcentagem_Valor', ascending=True)
         
-        # Tabela simplificada e totalmente textual conforme solicitado
+        # Exibição otimizada com colunas redimensionadas para o celular
         st.dataframe(
-            df_modulos[['Módulo Exame (Nota)', 'Prioridade de Estudo']], 
+            df_modulos[['Módulo do Exame', 'Direcionamento']], 
             use_container_width=True, 
             hide_index=True,
             column_config={
-                "Módulo Exame (Nota)": st.column_config.TextColumn("Módulo do Exame e Seu Rendimento", width="large"),
-                "Prioridade de Estudo": st.column_config.TextColumn("Direcionamento / Foco do Aluno", width="medium")
+                "Módulo do Exame": st.column_config.TextColumn("Módulo do Exame e Seu Rendimento"),
+                "Direcionamento": st.column_config.TextColumn("Direcionamento / Foco")
             }
         )
         
