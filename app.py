@@ -22,16 +22,21 @@ st.markdown(
         padding-top: 1rem !important;
         padding-bottom: 1rem !important;
     }
-    /* Estilização universal para alertas de erro internos com contraste perfeito */
-    .custom-error-box {
-        background-color: #D32F2F;
-        color: #FFFFFF !important;
-        padding: 12px;
-        border-radius: 6px;
-        font-weight: 600;
+    
+    /* Caixa de feedback adaptável para Erros - Funciona perfeitamente em Light e Dark */
+    .feedback-erro-container {
+        padding: 14px;
+        margin: 12px 0px;
+        border-radius: 8px;
+        background-color: rgba(211, 47, 47, 0.08);
+        border: 1.5px solid #FF5252;
+        color: var(--text-color);
         font-size: 14px;
-        margin-top: 10px;
-        margin-bottom: 10px;
+        font-weight: 500;
+    }
+    .feedback-erro-destaque {
+        color: #FF5252;
+        font-weight: 700;
     }
     </style>
     """,
@@ -120,7 +125,6 @@ with aba_config:
     topico_selecionado = st.selectbox("Escolha o Tópico do Exame:", MODULOS_ADMIN)
     nivel = st.selectbox("Escolha o Nível de Dificuldade:", ["Iniciante", "Intermediário", "Especialista"])
     
-    # AJUSTADO: Botão modificado para "Gerar Simulado" apenas
     if st.button("🚀 Gerar Simulado"):
         with st.spinner("Sorteando 10 questões inéditas para o seu caderno..."):
             st.session_state.respostas_usuario = {}
@@ -144,7 +148,6 @@ with aba_simulado:
             st.markdown(f"##### **Questão {i+1} de {len(st.session_state.questoes)}**")
             st.write(q['pergunta'])
             
-            # AJUSTADO: Removido os textos explicativos "para a Q1:" mantendo o layout limpo e direto
             resp = st.radio("Selecione a sua resposta alternativa:", q['opcoes'], key=f"q_{i}", index=None, disabled=st.session_state.get('corrigido', False))
             
             if resp:
@@ -155,10 +158,12 @@ with aba_simulado:
                 if user_choice == q['correta']:
                     st.success(f"✅ Correto! Gabarito: {q['correta']}")
                 else:
-                    # AJUSTADO: Bloco de erro com fonte branca em fundo vermelho estruturado (Visível em Light e Dark)
+                    # ALTERADO: Caixa de erro limpa, legível no branco e no escuro sem sumir
                     html_erro = f"""
-                    <div class="custom-error-box">
-                        ❌ Errado. Sua resposta selecionada: {user_choice if user_choice else 'Nenhuma'}. &nbsp;|&nbsp; Resposta Correta: {q['correta']}
+                    <div class="feedback-erro-container">
+                        <span class="feedback-erro-destaque">❌ Errado.</span> 
+                        Sua resposta: {user_choice if user_choice else 'Nenhuma'} &nbsp;|&nbsp; 
+                        Gabarito Correto: <span style="font-weight: 700; color: #66BB6A;">{q['correta']}</span>
                     </div>
                     """
                     st.markdown(html_erro, unsafe_allow_html=True)
@@ -214,7 +219,7 @@ with aba_simulado:
     else:
         st.info("Nenhum simulado ativo. Monte a configuração na primeira aba para iniciar!")
 
-# --- ABA 3: PROGRESSO AJUSTADO COM CORES CONTRASTANTES DE ALTA VISIBILIDADE ---
+# --- ABA 3: PROGRESSO TOTALMENTE ADAPTÁVEL ---
 with aba_progresso:
     df = carregar_dados()
     
@@ -233,46 +238,39 @@ with aba_progresso:
         
         st.markdown('<span style="font-size: 16px; font-weight: 700; color: #1E88E5; display: block; margin-bottom: 16px;">📋 Diagnóstico de Desempenho por Tópico</span>', unsafe_allow_html=True)
         
-        # Agrupamento e cálculo
         df_modulos = df.groupby('Tema').agg({'Acertos': 'sum', 'Total': 'sum'}).reset_index()
         df_modulos.columns = ['Módulo', 'Total Acertos', 'Total Questões']
         df_modulos['Porcentagem_Valor'] = ((df_modulos['Total Acertos'] / df_modulos['Total Questões']) * 100).astype(int)
         
-        # Ordenação: Menor rendimento no topo (foco de estudo)
         df_modulos = df_modulos.sort_values(by='Porcentagem_Valor', ascending=True)
         
-        # Interface de Cards baseados em CSS Varável Puro (Preto no Light / Branco no Dark)
         for idx, row in df_modulos.iterrows():
             pct = row['Porcentagem_Valor']
             modulo_nome = row['Módulo']
             
-            # AJUSTADO: Cores dos Badges com Letras Brancas (#FFFFFF) para legibilidade absoluta em qualquer tema
+            # ALTERADO: Paleta de cores com transparência inteligente de fundo e bordas vivas para legibilidade absoluta
             if pct < 50:
                 texto_acao = "Prioridade Alta"
-                cor_badge_texto = "#FFFFFF" 
-                cor_fundo_badge = "#D32F2F"   # Vermelho Sólido
-                cor_texto_pct = "#FF5252"     # Destaque de porcentagem visível em fundo escuro/claro
+                cor_primaria = "#FF5252"  # Vermelho claro acessível
+                cor_fundo_badge = "rgba(255, 82, 82, 0.15)"
             elif pct < 65:
                 texto_acao = "Ajustes Finais"
-                cor_badge_texto = "#FFFFFF"
-                cor_fundo_badge = "#E65100"   # Laranja Sólido Escuro
-                cor_texto_pct = "#FF9100"     
+                cor_primaria = "#FF9100"  # Laranja claro acessível
+                cor_fundo_badge = "rgba(255, 145, 0, 0.15)"
             elif pct < 80:
                 texto_acao = "Meta Atingida"
-                cor_badge_texto = "#FFFFFF"
-                cor_fundo_badge = "#2E7D32"   # Verde Sólido
-                cor_texto_pct = "#00E676"     
+                cor_primaria = "#00E676"  # Verde claro acessível
+                cor_fundo_badge = "rgba(0, 230, 118, 0.15)"
             else:
                 texto_acao = "Excelente"
-                cor_badge_texto = "#FFFFFF"
-                cor_fundo_badge = "#1565C0"   # Azul Sólido
-                cor_texto_pct = "#40C4FF"     
+                cor_primaria = "#40C4FF"  # Azul claro acessível
+                cor_fundo_badge = "rgba(64, 196, 255, 0.15)"
             
-            # HTML com controle de variáveis do Streamlit (var(--text-color)) garantindo perfeita harmonia visual
+            # Layout em HTML usando var(--text-color) para os títulos de módulos acompanharem o tema perfeitamente
             card_html = f"""
             <div style="
                 background-color: transparent;
-                border-bottom: 1px solid rgba(128, 128, 128, 0.25);
+                border-bottom: 1px solid rgba(128, 128, 128, 0.2);
                 padding: 14px 4px;
                 display: flex;
                 justify-content: space-between;
@@ -283,22 +281,22 @@ with aba_progresso:
                     <div style="font-size: 15px; font-weight: 600; color: var(--text-color); line-height: 1.3;">
                         {modulo_nome}
                     </div>
-                    <div style="font-size: 13px; color: var(--text-color); opacity: 0.95; margin-top: 4px;">
-                        Aproveitamento: <strong style="color: {cor_texto_pct}; font-size: 14px;">{pct}%</strong>
+                    <div style="font-size: 13px; color: var(--text-color); opacity: 0.8; margin-top: 4px;">
+                        Aproveitamento: <strong style="color: {cor_primaria}; font-size: 14px;">{pct}%</strong>
                     </div>
                 </div>
                 <div style="
                     background-color: {cor_fundo_badge};
-                    color: {cor_badge_texto};
+                    color: {cor_primaria};
+                    border: 1px solid {cor_primaria};
                     font-size: 11px;
                     font-weight: 700;
-                    padding: 6px 14px;
-                    border-radius: 6px;
+                    padding: 5px 12px;
+                    border-radius: 4px;
                     text-transform: uppercase;
                     letter-spacing: 0.5px;
                     white-space: nowrap;
                     text-align: center;
-                    box-shadow: 0px 1px 3px rgba(0,0,0,0.2);
                 ">
                     {texto_acao}
                 </div>
