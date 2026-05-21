@@ -67,7 +67,7 @@ def gerar_questoes_ia(tema, nivel):
     return dados.get('perguntas', [])[:15]
 
 # --- DESIGN PRINCIPAL ---
-st.markdown('<h2 style="font-size: 24px; margin-bottom: 15px;">🎓 Simulado - Salesforce Administrator</h2>', unsafe_allow_html=True)
+st.markdown('<h2 style="font-size: 22px; margin-bottom: 15px;">🎓 Simulado - Salesforce Administrator</h2>', unsafe_allow_html=True)
 
 aba_config, aba_simulado, aba_progresso = st.tabs(["⚙️ Configurar", "🔥 Simulado", "📊 Meu Progresso"])
 
@@ -77,20 +77,21 @@ with aba_config:
     nivel = st.selectbox("Escolha o Nível de Dificuldade:", ["Iniciante", "Intermediário", "Especialista"])
     
     if st.button("🚀 Gerar Simulado Completo"):
-        with st.spinner("Construindo caderno com 15 questões exclusivas..."):
+        with st.spinner("Construindo caderno com 15 questões..."):
             st.session_state.questoes = gerar_questoes_ia(topico_selecionado, nivel)
             st.session_state.respostas_usuario = {}
             st.session_state.corrigido = False
             st.session_state.simulado_ativo = True
             st.session_state.topico_atual = topico_selecionado
             st.session_state.nivel_atual = nivel
+            st.session_state.confirmou_salvamento = False
             st.success("Simulado pronto! Vá para a aba '🔥 Simulado'.")
 
 # --- ABA 2: O SIMULADO ---
 with aba_simulado:
     if st.session_state.get('simulado_ativo'):
         st.markdown(f"### 📝 Desafio Iniciado: {st.session_state.get('topico_atual')}")
-        st.caption(f"Nível selecionado: {st.session_state.get('nivel_atual')} | Alvo para aprovação: 65%")
+        st.caption(f"Nível: {st.session_state.get('nivel_atual')} | Meta: 65%")
         st.write("---")
         
         for i, q in enumerate(st.session_state.questoes):
@@ -112,78 +113,106 @@ with aba_simulado:
                     st.write(q['explicacao'])
             st.markdown("---")
 
+        # Zona de Validação e Encerramento
         if not st.session_state.get('corrigido'):
             if st.button("🏁 Finalizar e Corrigir Simulado"):
-                acertos = sum(1 for i, q in enumerate(st.session_state.questoes) if st.session_state.respostas_usuario.get(i) == q['correta'])
-                st.session_state.corrigido = True
-                score_final = salvar_no_historico(st.session_state.topico_atual, st.session_state.nivel_atual, acertos, len(st.session_state.questoes))
+                total_questoes = len(st.session_state.questoes)
+                respondidas = list(st.session_state.respostas_usuario.keys())
                 
-                if score_final == 100:
-                    st.balloons()
-                    st.success("🏆 INCRÍVEL! Parabéns, você gabaritou com 100% de aproveitamento!")
-                elif score_final >= 65:
-                    st.balloons()
-                    st.info("🎉 Você foi muito bem até aqui, mas pode melhorar ainda mais!")
+                # Verifica se há pendências
+                if len(respondidas) < total_questoes:
+                    st.error("⚠️ Atenção! Você não respondeu todas as questões do caderno.")
+                    
+                    # Cria listas de amostragem no final da tela
+                    col_res_1, col_res_2 = st.columns(2)
+                    with col_res_1:
+                        ok_list = [f"Questão {idx+1}" for idx in respondidas]
+                        st.info(f"**Respondidas ({len(respondidas)}):**\n" + (", ".join(ok_list) if ok_list else "Nenhuma"))
+                    with col_res_2:
+                        falta_list = [f"Questão {idx+1}" for idx in range(total_questoes) if idx not in respondidas]
+                        st.warning(f"**Faltam Responder ({len(falta_list)}):**\n" + ", ".join(falta_list))
                 else:
-                    st.warning("Treino concluído! Revise as justificativas técnicas para alcançar os 65% na próxima tentativa.")
-                st.rerun()
+                    st.session_state.confirmou_salvamento = True
+
+            # Caixa de confirmação de salvamento (Aparece se passou no teste de preenchimento)
+            if st.session_state.get('confirmou_salvamento'):
+                st.write("---")
+                st.markdown("#### 💾 Deseja salvar este progresso no seu histórico?")
+                col_btn1, col_btn2 = st.columns(2)
+                
+                if col_btn1.button("✅ Sim, Salvar e Corrigir"):
+                    acertos = sum(1 for i, q in enumerate(st.session_state.questoes) if st.session_state.respostas_usuario.get(i) == q['correta'])
+                    st.session_state.corrigido = True
+                    st.session_state.confirmou_salvamento = False
+                    score_final = salvar_no_historico(st.session_state.topico_atual, st.session_state.nivel_atual, acertos, len(st.session_state.questoes))
+                    
+                    if score_final == 100:
+                        st.balloons()
+                        st.success("🏆 INCRÍVEL! Parabéns, você gabaritou com 100% de aproveitamento!")
+                    elif score_final >= 65:
+                        st.balloons()
+                        st.info("🎉 Você foi muito bem até aqui, mas pode melhorar ainda mais!")
+                    else:
+                        st.warning("Treino concluído! Revise as justificativas técnicas para alcançar os 65% na próxima tentativa.")
+                    st.rerun()
+                    
+                if col_btn2.button("❌ Não, Apenas Corrigir Sem Salvar"):
+                    st.session_state.corrigido = True
+                    st.session_state.confirmou_salvamento = False
+                    st.rerun()
     else:
         st.info("Nenhum simulado ativo. Monte a configuração na primeira aba para iniciar!")
 
-# --- ABA 3: PROGRESSO OTIMIZADA ---
+# --- ABA 3: PROGRESSO OTIMIZADA (MOBILE-FIRST) ---
 with aba_progresso:
     df = carregar_dados()
     
     if not df.empty:
         df['Score_Num'] = df['Score %'].str.replace('%','').astype(int)
         
-        # Resumo de Status Principal
+        # Resumo de Status Principal (Métricas Compactas)
         media_geral = int(df['Score_Num'].mean())
         col_m1, col_m2 = st.columns(2)
         with col_m1:
-            st.metric(label="🎯 Sua Média Geral", value=f"{media_geral}%")
+            st.metric(label="🎯 Média Geral", value=f"{media_geral}%")
         with col_m2:
-            status_aprovacao = "Aprovada 🎉" if media_geral >= 65 else "Abaixo da Meta (Focar 65%)"
-            st.metric(label="🛡️ Previsão p/ Certificação", value=status_aprovacao)
+            status_aprovacao = "Aprovada 🎉" if media_geral >= 65 else "Abaixo da Meta"
+            st.metric(label="🛡️ Certificação", value=status_aprovacao)
             
         st.write("---")
         
-        # --- TABELA 1: SCORE POR MÓDULO ---
-        st.write("### 🏷️ Desempenho Médio por Módulo:")
+        # --- TABELA 1: RENDIMENTO POR MÓDULO (Compacta) ---
+        st.write("### 🏷️ Rendimento por Módulo")
         df_modulos = df.groupby('Tema')['Score_Num'].mean().reset_index()
-        df_modulos.columns = ['Módulo Acadêmico', 'Média de Acertos (%)']
-        df_modulos['Média de Acertos (%)'] = df_modulos['Média de Acertos (%)'].round(1).astype(str) + '%'
+        df_modulos.columns = ['Módulo', 'Média']
+        df_modulos['Média'] = df_modulos['Média'].round(0).astype(int).astype(str) + '%'
         st.dataframe(df_modulos, use_container_width=True, hide_index=True)
         
         st.write("---")
         
-        # --- SEÇÃO CRÍTICA (FOCAR MAIS) ---
-        st.write("### 🔍 Módulos que precisam de Atenção Urgente:")
+        # --- SEÇÃO CRÍTICA ULTRA COMPACTA (Evita quebra no celular) ---
+        st.write("### 🔍 Atenção Urgente:")
         medias_por_tema = df.groupby('Tema')['Score_Num'].mean().to_dict()
         
-        recomendacoes_criticas = []
-        
-        for tema, media in medias_por_tema.items():
-            if media < 65:
-                recomendacoes_criticas.append(f"🔴 **{tema}** (Média Atual: {int(media)}%): Está abaixo do mínimo exigido. Revise os conceitos fundamentais.")
+        temas_criticos = [f"⚠️ {tema[:18]}... ({int(media)}%)" for tema, media in medias_por_tema.items() if media < 65]
                 
-        if recomendacoes_criticas:
-            for item in recomendacoes_criticas:
+        if temas_criticos:
+            for item in temas_criticos:
                 st.write(item)
         else:
-            st.success("🔥 Ótimo sinal! Nenhum dos módulos testados está abaixo da linha crítica de corte.")
+            st.success("🔥 Todos os módulos estão acima da média!")
 
         st.write("---")
         
-        # --- TABELA 2: HISTÓRICO DE SIMULADOS COMPACTO ---
-        st.write("### 📋 Detalhes dos Testes Realizados:")
+        # --- TABELA 2: HISTÓRICO DE SIMULADOS ENXUTO (Sem data e sem dificuldade) ---
+        st.write("### 📋 Detalhes dos Testes")
         
         df_visual = df.copy()
-        df_visual['Status'] = df_visual['Score_Num'].apply(lambda x: "💚 Aprovado" if x >= 65 else "❤️ Revisar")
-        df_visual = df_visual[['Data', 'Tema', 'Dificuldade', 'Score %', 'Status']]
-        df_visual.columns = ['Data/Hora', 'Módulo Concluído', 'Dificuldade', 'Aproveitamento', 'Resultado']
+        df_visual['Resultado'] = df_visual['Score_Num'].apply(lambda x: "💚 OK" if x >= 65 else "❤️ Rev")
+        df_visual = df_visual[['Tema', 'Score %', 'Resultado']]
+        df_visual.columns = ['Módulo', 'Aproveitamento', 'Status']
         
         st.dataframe(df_visual.iloc[::-1], use_container_width=True, hide_index=True)
         
     else:
-        st.info("O histórico de evolução está vazio. Finalize o seu primeiro teste para alimentar o painel!")
+        st.info("O histórico está vazio. Faça um teste para ativar o painel!")
