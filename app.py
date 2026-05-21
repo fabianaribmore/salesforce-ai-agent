@@ -480,58 +480,6 @@ with aba_config:
             ["Iniciante", "Intermediário", "Especialista"],
         )
 
-    # ── CARD DO MÓDULO: PESO E SUBTÓPICOS ──
-    modulo_info  = MODULOS_ADMIN[topico_selecionado]
-    peso_modulo  = modulo_info["peso"]
-    subtopicos_html = "".join(
-        f"<span style='display:inline-block; background:var(--bg-card); "
-        f"border:1px solid var(--border-subtle); border-radius:20px; "
-        f"padding:3px 10px; font-size:12px; margin:3px 4px 3px 0; color:inherit;'>{s}</span>"
-        for s in modulo_info["subtopicos"]
-    )
-    st.markdown(
-        f"""
-        <div style='background:var(--bg-card); border:1px solid var(--border-subtle);
-                    border-left:4px solid var(--sf-blue); border-radius:10px;
-                    padding:16px 20px; margin:12px 0 10px 0;'>
-            <div style='display:flex; align-items:center; gap:12px; margin-bottom:12px;'>
-                <span style='font-size:12px; font-weight:700; color:var(--sf-blue);
-                             text-transform:uppercase; letter-spacing:1px;'>
-                    Peso no exame oficial
-                </span>
-                <span style='font-size:24px; font-weight:900; color:var(--sf-blue);'>{peso_modulo}%</span>
-                <div style='flex:1; background:rgba(0,161,224,0.15); border-radius:4px; height:8px;'>
-                    <div style='width:{peso_modulo}%; background:var(--sf-blue);
-                                border-radius:4px; height:8px; transition:width 0.4s;'></div>
-                </div>
-            </div>
-            <div style='font-size:11px; font-weight:700; opacity:0.55;
-                        text-transform:uppercase; letter-spacing:0.8px; margin-bottom:8px;'>
-                Subtópicos cobertos pela IA
-            </div>
-            <div>{subtopicos_html}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    # ── INDICADOR DO BANCO LOCAL ──
-    banco_do_tema = carregar_banco_questoes(topico_selecionado)
-    if banco_do_tema:
-        st.markdown(
-            f"<div style='font-size:13px; opacity:0.70; margin-bottom:6px;'>"
-            f"📚 Banco local: <b>{len(banco_do_tema)} questão(ões)</b> de referência encontradas "
-            f"— a IA usará como exemplo de estilo.</div>",
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown(
-            "<div style='font-size:13px; opacity:0.55; margin-bottom:6px;'>"
-            "📂 Nenhuma questão local para este módulo ainda. "
-            "Adicione em <code>questions.json</code> para enriquecer a geração.</div>",
-            unsafe_allow_html=True,
-        )
-
     st.markdown("<div class='sf-divider'></div>", unsafe_allow_html=True)
 
     if st.button("🚀  Gerar Simulado Completo", use_container_width=True, type="primary"):
