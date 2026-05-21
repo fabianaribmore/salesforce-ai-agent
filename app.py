@@ -42,13 +42,14 @@ def salvar_no_historico(tema, dificuldade, pontos, total):
     return score
 
 def gerar_questoes_ia(tema, nivel):
+    # AJUSTADO: Voltando estritamente para 10 questões
     prompt = f"""
-    Gere um caderno de testes COMPLETAMENTE ALEATÓRIO e INÉDITO contendo exatamente 15 perguntas de múltipla escolha sobre o módulo: {tema}.
+    Gere um caderno de testes COMPLETAMENTE ALEATÓRIO e INÉDITO contendo exatamente 10 perguntas de múltipla escolha sobre o módulo: {tema}.
     Nível de complexidade exigido: {nivel}.
     Mecânica de Alinhamento: Exame oficial Salesforce Certified Administrator (CRT-101).
     Importante: Varie os cenários de negócios, use diferentes objetos e requisitos práticos a cada execução para que o aluno nunca estude com o mesmo padrão.
     
-    Certifique-se de preencher rigorosamente todos os 15 objetos no array JSON.
+    Certifique-se de preencher rigorosamente todos os 10 objetos no array JSON.
     Responda EXCLUSIVAMENTE no formato JSON estruturado abaixo:
     {{
       "perguntas": [
@@ -63,13 +64,13 @@ def gerar_questoes_ia(tema, nivel):
     """
     response = client.chat.completions.create(
         model="gpt-4o-mini", 
-        messages=[{"role": "system", "content": "Você é um avaliador Salesforce dinâmico. Sua meta é criar 15 questões originais, variadas e nunca repetidas dentro do bloco JSON."},
+        messages=[{"role": "system", "content": "Você é um avaliador Salesforce dinâmico. Sua meta é criar 10 questões originais, variadas e nunca repetidas dentro do bloco JSON."},
                   {"role": "user", "content": prompt}],
         response_format={ "type": "json_object" },
         temperature=0.9
     )
     dados = json.loads(response.choices[0].message.content)
-    return dados.get('perguntas', [])[:15]
+    return dados.get('perguntas', [])[:10]
 
 # --- DESIGN PRINCIPAL ---
 st.markdown('<h2 style="font-size: 20px; margin-bottom: 12px; font-weight: 700; color: #1E88E5;">🛡️ Simulado - Salesforce Administrator</h2>', unsafe_allow_html=True)
@@ -82,7 +83,7 @@ with aba_config:
     nivel = st.selectbox("Escolha o Nível de Dificuldade:", ["Iniciante", "Intermediário", "Especialista"])
     
     if st.button("🚀 Gerar Simulado Completo"):
-        with st.spinner("Sorteando 15 questões inéditas para o seu caderno..."):
+        with st.spinner("Sorteando 10 questões inéditas para o seu caderno..."):
             st.session_state.questoes = gerar_questoes_ia(topico_selecionado, nivel)
             st.session_state.respostas_usuario = {}
             st.session_state.corrigido = False
@@ -109,112 +110,4 @@ with aba_simulado:
                 st.session_state.respostas_usuario[i] = resp[0]
 
             if st.session_state.get('corrigido'):
-                user_choice = st.session_state.respostas_usuario.get(i)
-                if user_choice == q['correta']:
-                    st.success(f"✅ Correto! Gabarito: {q['correta']}")
-                else:
-                    st.error(f"❌ Errado. Sua resposta: {user_choice if user_choice else 'Nenhuma'}. Resposta Certa: {q['correta']}.")
-                with st.expander("💡 Ver Justificativa Técnica"):
-                    st.write(q['explicacao'])
-            st.markdown("---")
-
-        if not st.session_state.get('corrigido'):
-            if st.button("🏁 Finalizar e Corrigir Simulado"):
-                total_questoes = len(st.session_state.questoes)
-                
-                if len(st.session_state.respostas_usuario) < total_questoes:
-                    st.error("⚠️ Atenção! Você não respondeu todas as questões do caderno.")
-                    st.markdown("<span style='font-size: 14px; font-weight: 700; display:block; margin-bottom:10px;'>📋 Painel de Revisão do Simulado</span>", unsafe_allow_html=True)
-                    
-                    grid_html = '<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; justify-content: flex-start;">'
-                    for idx in range(total_questoes):
-                        respondida = idx in st.session_state.respostas_usuario
-                        bg_color = "#2E7D32" if respondida else "#757575"
-                        text_color = "#FFFFFF"
-                        
-                        grid_html += f'<div style="width: 36px; height: 36px; background-color: {bg_color}; color: {text_color}; display: flex; align-items: center; justify-content: center; font-weight: 700; border-radius: 6px; font-size: 14px;">{idx + 1}</div>'
-                    grid_html += '</div>'
-                    
-                    legenda_html = """
-                    <div style="display: flex; gap: 15px; font-size: 11px; font-weight: 600; margin-bottom: 15px;">
-                        <div style="display: flex; align-items: center; gap: 5px;"><div style="width: 12px; height: 12px; background-color: #2E7D32; border-radius: 3px;"></div> Respondida</div>
-                        <div style="display: flex; align-items: center; gap: 5px;"><div style="width: 12px; height: 12px; background-color: #757575; border-radius: 3px;"></div> Em Branco</div>
-                    </div>
-                    """
-                    
-                    st.markdown(grid_html, unsafe_allow_html=True)
-                    st.markdown(legenda_html, unsafe_allow_html=True)
-                else:
-                    st.session_state.confirmou_salvamento = True
-
-            if st.session_state.get('confirmou_salvamento'):
-                st.write("---")
-                st.markdown("#### 💾 Deseja salvar este progresso no seu histórico?")
-                col_btn1, col_btn2 = st.columns(2)
-                
-                if col_btn1.button("✅ Sim, Salvar e Corrigir"):
-                    acertos = sum(1 for i, q in enumerate(st.session_state.questoes) if st.session_state.respostas_usuario.get(i) == q['correta'])
-                    st.session_state.corrigido = True
-                    st.session_state.confirmou_salvamento = False
-                    score_final = salvar_no_historico(st.session_state.topico_atual, st.session_state.nivel_atual, acertos, len(st.session_state.questoes))
-                    st.rerun()
-                    
-                if col_btn2.button("❌ Não, Apenas Corrigir Sem Salvar"):
-                    st.session_state.corrigido = True
-                    st.session_state.confirmou_salvamento = False
-                    st.rerun()
-    else:
-        st.info("Nenhum simulado ativo. Monte a configuração na primeira aba para iniciar!")
-
-# --- ABA 3: PROGRESSO PROFISSIONAL WEB ---
-with aba_progresso:
-    df = carregar_dados()
-    
-    if not df.empty:
-        # Garante retrocompatibilidade limpando nomes antigos do banco que continham a string de % antiga
-        df['Tema'] = df['Tema'].str.replace(r'\s\(\d+%\)', '', regex=True)
-        df['Score_Num'] = df['Score %'].str.replace('%','').astype(int)
-        
-        media_geral = int(df['Score_Num'].mean())
-        status_aprovacao = "Aprovado 🎉" if media_geral >= 65 else "Abaixo da Meta"
-        color_status = "#2E7D32" if media_geral >= 65 else "#FF6D00" 
-        
-        with st.container(border=True):
-            st.markdown(
-                f"""
-                <div style="text-align: center; padding: 2px;">
-                    <span style="font-size: 12px; font-weight: 600; display:block; text-transform: uppercase; letter-spacing: 0.5px;">Média de Acertos Geral</span>
-                    <span style="font-size: 30px; font-weight: 800; color: #1E88E5; display: block; line-height: 1.1;">{media_geral}%</span>
-                    <span style="font-size: 12px; font-weight: 700; color: {color_status}; display: block; margin-top: 2px;">
-                        Previsão: {status_aprovacao}
-                    </span>
-                </div>
-                """, 
-                unsafe_allow_html=True
-            )
-            
-        st.write("---")
-        
-        # AJUSTADO: Exibe a média real em formato de questões absolutas (ex: 11.5 de 15) em vez de porcentagem confusa
-        st.markdown('<span style="font-size: 15px; font-weight: 700;">🏷️ Rendimento Médio por Módulo (Média de Questões)</span>', unsafe_allow_html=True)
-        df_modulos = df.groupby('Tema').agg({'Acertos': 'mean', 'Total': 'mean'}).reset_index()
-        df_modulos.columns = ['Módulo', 'Média de Acertos', 'Total de Questões']
-        df_modulos['Rendimento Técnico'] = df_modulos['Média de Acertos'].round(1).astype(str) + " de " + df_modulos['Total de Questões'].astype(int).astype(str) + " acertos"
-        
-        st.dataframe(df_modulos[['Módulo', 'Rendimento Técnico']], use_container_width=True, hide_index=True)
-        
-        st.write("---")
-        
-        # AJUSTADO: Mostra puramente onde focar de forma direta e limpa, sem qualquer cálculo de porcentagem na tela
-        st.markdown('<span style="font-size: 15px; font-weight: 700;">🔍 Módulos que precisam de Atenção Urgente (Foco de Estudos):</span>', unsafe_allow_html=True)
-        medias_por_tema = df.groupby('Tema')['Score_Num'].mean().to_dict()
-        temas_criticos = [f"⚠️ **{tema}**" for tema, media in medias_por_tema.items() if media < 65]
-                
-        if temas_criticos:
-            for item in temas_criticos:
-                st.markdown(f"<div style='font-size:13px; margin-bottom:6px; color:#FF6D00;'>{item}</div>", unsafe_allow_html=True)
-        else:
-            st.success("🔥 Excelente! Todos os módulos estão operando com desempenho seguro.")
-        
-    else:
-        st.info("O histórico está vazio. Faça um teste para ativar o painel!")
+                user_choice = st.session
