@@ -20,6 +20,7 @@ if 'simulado_ativo' not in st.session_state:
     st.session_state.corrigido = False
     st.session_state.respostas_usuario = {}
     st.session_state.questoes = []
+    st.session_state.confirmou_salvamento = False
 
 # --- REQUISITOS DA PROVA SALESFORCE ADMIN (CRT-101) ---
 MODULOS_ADMIN = [
@@ -94,6 +95,7 @@ with aba_config:
         with st.spinner("Sorteando 10 questões inéditas para o seu caderno..."):
             st.session_state.respostas_usuario = {}
             st.session_state.corrigido = False
+            st.session_state.confirmou_salvamento = False
             
             st.session_state.questoes = gerar_questoes_ia(topico_selecionado, nivel)
             st.session_state.topico_atual = topico_selecionado
@@ -127,7 +129,8 @@ with aba_simulado:
                     st.write(q['explicacao'])
             st.markdown("---")
 
-        if not st.session_state.get('corrigido'):
+        # --- BOTÃO DE FINALIZAÇÃO COM PAINEL DE REVISÃO SE NECESSÁRIO ---
+        if not st.session_state.get('corrigido') and not st.session_state.get('confirmou_salvamento'):
             if st.button("🏁 Finalizar e Corrigir Simulado"):
                 total_questoes = len(st.session_state.questoes)
                 
@@ -153,10 +156,25 @@ with aba_simulado:
                     st.markdown(grid_html, unsafe_allow_html=True)
                     st.markdown(legenda_html, unsafe_allow_html=True)
                 else:
-                    acertos = sum(1 for i, q in enumerate(st.session_state.questoes) if st.session_state.respostas_usuario.get(i) == q['correta'])
-                    salvar_no_historico(st.session_state.topico_atual, st.session_state.nivel_atual, acertos, total_questoes)
-                    st.session_state.corrigido = True
+                    st.session_state.confirmou_salvamento = True
                     st.rerun()
+
+        # --- JANELA DE CONFIRMAÇÃO RESTAURADA ---
+        if st.session_state.get('confirmou_salvamento'):
+            st.markdown("#### 💾 Deseja salvar este progresso no seu histórico?")
+            col_btn1, col_btn2 = st.columns(2)
+            
+            if col_btn1.button("✅ Sim, Salvar e Corrigir"):
+                acertos = sum(1 for i, q in enumerate(st.session_state.questoes) if st.session_state.respostas_usuario.get(i) == q['correta'])
+                salvar_no_historico(st.session_state.topico_atual, st.session_state.nivel_atual, acertos, len(st.session_state.questoes))
+                st.session_state.corrigido = True
+                st.session_state.confirmou_salvamento = False
+                st.rerun()
+                
+            if col_btn2.button("❌ Não, Apenas Corrigir Sem Salvar"):
+                st.session_state.corrigido = True
+                st.session_state.confirmou_salvamento = False
+                st.rerun()
     else:
         st.info("Nenhum simulado ativo. Monte a configuração na primeira aba para iniciar!")
 
@@ -165,69 +183,47 @@ with aba_progresso:
     df = carregar_dados()
     
     if not df.empty:
-        # Limpeza robusta contra strings sujas vindas do histórico antigo
         df['Tema'] = df['Tema'].apply(lambda x: re.sub(r'\s*\(\d+%\)\s*', '', str(x)).strip())
         df['Score_Num'] = df['Score %'].astype(str).str.replace('%','').astype(int)
         
         media_geral = int(df['Score_Num'].mean())
         status_aprovacao = "Aprovado 🎉" if media_geral >= 65 else "Abaixo da Meta"
-        color_status = "#2E7D32" if media_geral >= 65 else "#FF6D00" 
         
-        with st.container(border=True):
-            st.markdown(
-                f"""
-                <div style="text-align: center; padding: 2px;">
-                    <span style="font-size: 12px; font-weight: 600; display:block; text-transform: uppercase; letter-spacing: 0.5px;">Média de Acertos Geral</span>
-                    <span style="font-size: 30px; font-weight: 800; color: #1E88E5; display: block; line-height: 1.1;">{media_geral}%</span>
-                    <span style="font-size: 12px; font-weight: 700; color: {color_status}; display: block; margin-top: 2px;">
-                        Previsão: {status_aprovacao}
-                    </span>
-                </div>
-                """, 
-                unsafe_allow_html=True
-            )
-            
+        col_kpi1, col_kpi2 = st.columns([1, 2])
+        with col_kpi1:
+            st.metric(label="Média Geral de Acertos", value=f"{media_geral}%", delta=status_aprovacao, delta_color="normal" if media_geral >= 65 else "inverse")
+        
         st.write("---")
         
-        st.markdown('<span style="font-size: 15px; font-weight: 700;">📊 Desempenho Técnico por Módulo do Exame</span>', unsafe_allow_html=True)
+        st.markdown('<span style="font-size: 15px; font-weight: 700; color: #1E88E5;">📋 Módulos para Foco de Estudos</span>', unsafe_allow_html=True)
         
-        # Agrupamento correto ponderando o volume total de acertos/questões
+        # Agrupamento matemático ponderado por acertos
         df_modulos = df.groupby('Tema').agg({'Acertos': 'sum', 'Total': 'sum'}).reset_index()
         df_modulos.columns = ['Módulo', 'Total Acertos', 'Total Questões']
         
-        # Cálculo real e preciso da porcentagem de acertos por módulo
-        df_modulos['Aproveitamento'] = (df_modulos['Total Acertos'] / df_modulos['Total Questões']).round(4)
+        # Gera a taxa numérica e a string com o nome concatenado ao % solicitado
+        df_modulos['Taxa'] = (df_modulos['Total Acertos'] / df_modulos['Total Questões']).round(4)
+        df_modulos['Módulo Exame'] = df_modulos.apply(lambda r: f"📘 {r['Módulo']} ({int(r['Taxa']*100)}%)", axis=1)
         
-        # Formatação profissional utilizando colunas interativas e barras de progresso do Streamlit
+        # Ordena de forma inteligente para destacar primeiro os módulos de menor aproveitamento (foco de estudo urgente)
+        df_modulos = df_modulos.sort_values(by='Taxa', ascending=True)
+        
+        # Renderização da tabela simplificada e unificada
         st.dataframe(
-            df_modulos[['Módulo', 'Aproveitamento']], 
+            df_modulos[['Módulo Exame', 'Taxa']], 
             use_container_width=True, 
             hide_index=True,
             column_config={
-                "Módulo": st.column_config.TextColumn("Módulo do Exame", help="Áreas oficiais avaliadas no teste"),
-                "Aproveitamento": st.column_config.ProgressColumn(
-                    "Taxa de Rendimento (%)",
-                    help="Porcentagem ponderada de acertos baseada no histórico completo",
-                    format="%.0f%%",
+                "Módulo Exame": st.column_config.TextColumn("Módulo do Exame (Sua Nota)", width="large"),
+                "Taxa": st.column_config.ProgressColumn(
+                    "Progresso Visual",
+                    help="Indicador gráfico do seu nível técnico",
+                    format=" ",
                     min_value=0.0,
                     max_value=1.0
                 )
             }
         )
-        
-        st.write("---")
-        
-        st.markdown('<span style="font-size: 15px; font-weight: 700;">🔍 Módulos que precisam de Atenção Urgente (Foco de Estudos):</span>', unsafe_allow_html=True)
-        
-        # Mapeia as porcentagens exatas para a verificação de corte
-        medias_por_tema = {row['Módulo']: row['Aproveitamento'] * 100 for _, row in df_modulos.iterrows()}
-        temas_criticos = [f"⚠️ **{tema}** ({int(pct)}% de aproveitamento)" for tema, pct in medias_por_tema.items() if pct < 65]
-                
-        if temas_criticos:
-            for item in temas_criticos:
-                st.markdown(f"<div style='font-size:13px; margin-bottom:6px; color:#FF6D00;'>{item}</div>", unsafe_allow_html=True)
-        else:
-            st.success("🔥 Excelente! Todos os módulos estão operando com desempenho seguro (acima de 65%).")
         
     else:
         st.info("O histórico está vazio. Faça um teste para ativar o painel!")
