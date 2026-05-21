@@ -10,11 +10,11 @@ import re
 # 1. Configuração da Página
 st.set_page_config(page_title="Simulado - Salesforce Administrator", page_icon="🛡️", layout="wide")
 
-# --- CSS DEFINITIVO PARA EXTINÇÃO DE BARRAS DE ROLAGEM NO MOBILE ---
+# --- CSS ULTRA-COMPACTO PARA ENCAIXE PERFEITO NO CELULAR ---
 st.markdown(
     """
     <style>
-    /* Força tabelas estáticas a ocuparem 100% da tela sem gerar overflow lateral */
+    /* Força o container da tabela a usar 100% da largura visível do celular */
     div[data-testid="stTable"] {
         width: 100% !important;
         overflow-x: hidden !important;
@@ -22,13 +22,22 @@ st.markdown(
     div[data-testid="stTable"] table {
         width: 100% !important;
         margin: 0px !important;
+        table-layout: fixed !important; /* Garante tamanho controlado das colunas */
     }
-    /* Estilização Executiva para as Células (Quebra automática e tamanho responsivo) */
+    /* Estilização focada em telas pequenas: menos padding e fonte compacta */
     div[data-testid="stTable"] td, div[data-testid="stTable"] th {
         white-space: normal !important;
         word-wrap: break-word !important;
         font-size: 13px !important;
-        padding: 8px 6px !important;
+        padding: 6px 4px !important; /* Reduz o espaçamento que estava esticando as linhas */
+        line-height: 1.2 !important;
+    }
+    /* Define proporções rígidas para as colunas não se esmagarem no mobile */
+    div[data-testid="stTable"] th:nth-child(1), div[data-testid="stTable"] td:nth-child(1) {
+        width: 65% !important;
+    }
+    div[data-testid="stTable"] th:nth-child(2), div[data-testid="stTable"] td:nth-child(2) {
+        width: 35% !important;
     }
     </style>
     """,
@@ -177,78 +186,4 @@ with aba_simulado:
                         <div style="display: flex; align-items: center; gap: 5px;"><div style="width: 12px; height: 12px; background-color: #757575; border-radius: 3px;"></div> Em Branco</div>
                     </div>
                     """
-                    st.markdown(grid_html, unsafe_allow_html=True)
-                    st.markdown(legenda_html, unsafe_allow_html=True)
-                else:
-                    st.session_state.confirmou_salvamento = True
-                    st.rerun()
-
-        if st.session_state.get('confirmou_salvamento'):
-            st.markdown("#### 💾 Deseja salvar este progresso no seu histórico?")
-            col_btn1, col_btn2 = st.columns(2)
-            
-            if col_btn1.button("✅ Sim, Salvar e Corrigir"):
-                acertos = sum(1 for i, q in enumerate(st.session_state.questoes) if st.session_state.respostas_usuario.get(i) == q['correta'])
-                salvar_no_historico(st.session_state.topico_atual, st.session_state.nivel_atual, acertos, len(st.session_state.questoes))
-                st.session_state.corrigido = True
-                st.session_state.confirmou_salvamento = False
-                st.rerun()
-                
-            if col_btn2.button("❌ Não, Apenas Corrigir Sem Salvar"):
-                st.session_state.corrigido = True
-                st.session_state.confirmou_salvamento = False
-                st.rerun()
-    else:
-        st.info("Nenhum simulado ativo. Monte a configuração na primeira aba para iniciar!")
-
-# --- ABA 3: PROGRESSO PROFISSIONAL WEB ---
-with aba_progresso:
-    df = carregar_dados()
-    
-    if not df.empty:
-        df['Tema'] = df['Tema'].apply(lambda x: re.sub(r'\s*\(\d+%\)\s*', '', str(x)).strip())
-        df['Score_Num'] = df['Score %'].astype(str).str.replace('%','').astype(int)
-        
-        media_geral = int(df['Score_Num'].mean())
-        status_aprovacao = "Aprovado 🎉" if media_geral >= 65 else "Abaixo da Meta"
-        
-        col_kpi1, col_kpi2 = st.columns([1, 2])
-        with col_kpi1:
-            st.metric(label="Média Geral de Acertos", value=f"{media_geral}%", delta=status_aprovacao, delta_color="normal" if media_geral >= 65 else "inverse")
-        
-        st.write("---")
-        
-        st.markdown('<span style="font-size: 15px; font-weight: 700; color: #1E88E5;">📋 Matriz Estratégica de Aprendizado</span>', unsafe_allow_html=True)
-        
-        # Agrupamento e cálculo
-        df_modulos = df.groupby('Tema').agg({'Acertos': 'sum', 'Total': 'sum'}).reset_index()
-        df_modulos.columns = ['Módulo', 'Total Acertos', 'Total Questões']
-        
-        df_modulos['Porcentagem_Valor'] = ((df_modulos['Total Acertos'] / df_modulos['Total Questões']) * 100).astype(int)
-        
-        # Criação das duas colunas perfeitamente limpas
-        df_modulos['Tópico Avaliado'] = df_modulos.apply(lambda r: f"{r['Módulo']} ({r['Porcentagem_Valor']}%)", axis=1)
-        
-        def definir_direcionamento_executivo(pct):
-            if pct < 50:
-                return "Reforço Imediato"
-            elif pct < 65:
-                return "Nivelamento"
-            elif pct < 80:
-                return "Consolidação"
-            return "Domínio Seguro"
-            
-        df_modulos['Plano de Ação'] = df_modulos['Porcentagem_Valor'].apply(definir_direcionamento_executivo)
-        
-        # Ordenação: pior aproveitamento no topo
-        df_modulos = df_modulos.sort_values(by='Porcentagem_Valor', ascending=True)
-        
-        # Filtro final com novos nomes limpos para o cabeçalho
-        tabela_final = df_modulos[['Tópico Avaliado', 'Plano de Ação']].copy()
-        tabela_final.columns = ['Tópico e Rendimento', 'Plano de Ação']
-        
-        # Mudança chave: st.table força a tabela a ser estática e quebrar linhas nativamente sem criar caixas de rolagem
-        st.table(tabela_final)
-        
-    else:
-        st.info("O histórico está vazio. Faça um teste para ativar o painel!")
+                    st.markdown
