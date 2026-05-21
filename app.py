@@ -186,4 +186,78 @@ with aba_simulado:
                         <div style="display: flex; align-items: center; gap: 5px;"><div style="width: 12px; height: 12px; background-color: #757575; border-radius: 3px;"></div> Em Branco</div>
                     </div>
                     """
-                    st.markdown
+                    st.markdown(grid_html, unsafe_allow_html=True)
+                    st.markdown(legenda_html, unsafe_allow_html=True)
+                else:
+                    st.session_state.confirmou_salvamento = True
+                    st.rerun()
+
+        if st.session_state.get('confirmou_salvamento'):
+            st.markdown("#### 💾 Deseja salvar este progresso no seu histórico?")
+            col_btn1, col_btn2 = st.columns(2)
+            
+            if col_btn1.button("✅ Sim, Salvar e Corrigir"):
+                acertos = sum(1 for i, q in enumerate(st.session_state.questoes) if st.session_state.respostas_usuario.get(i) == q['correta'])
+                salvar_no_historico(st.session_state.topico_atual, st.session_state.nivel_atual, acertos, len(st.session_state.questoes))
+                st.session_state.corrigido = True
+                st.session_state.confirmou_salvamento = False
+                st.rerun()
+                
+            if col_btn2.button("❌ Não, Apenas Corrigir Sem Salvar"):
+                st.session_state.corrigido = True
+                st.session_state.confirmou_salvamento = False
+                st.rerun()
+    else:
+        st.info("Nenhum simulado ativo. Monte a configuração na primeira aba para iniciar!")
+
+# --- ABA 3: PROGRESSO PROFISSIONAL WEB ---
+with aba_progresso:
+    df = carregar_dados()
+    
+    if not df.empty:
+        df['Tema'] = df['Tema'].apply(lambda x: re.sub(r'\s*\(\d+%\)\s*', '', str(x)).strip())
+        df['Score_Num'] = df['Score %'].astype(str).str.replace('%','').astype(int)
+        
+        media_geral = int(df['Score_Num'].mean())
+        status_aprovacao = "Aprovado 🎉" if media_geral >= 65 else "Abaixo da Meta"
+        
+        col_kpi1, col_kpi2 = st.columns([1, 2])
+        with col_kpi1:
+            st.metric(label="Média Geral de Acertos", value=f"{media_geral}%", delta=status_aprovacao, delta_color="normal" if media_geral >= 65 else "inverse")
+        
+        st.write("---")
+        
+        st.markdown('<span style="font-size: 15px; font-weight: 700; color: #1E88E5;">📋 Diagnóstico de Desempenho por Tópico</span>', unsafe_allow_html=True)
+        
+        # Agrupamento e cálculo
+        df_modulos = df.groupby('Tema').agg({'Acertos': 'sum', 'Total': 'sum'}).reset_index()
+        df_modulos.columns = ['Módulo', 'Total Acertos', 'Total Questões']
+        
+        df_modulos['Porcentagem_Valor'] = ((df_modulos['Total Acertos'] / df_modulos['Total Questões']) * 100).astype(int)
+        
+        # Estruturação limpa dos textos das colunas
+        df_modulos['Módulo do Exame'] = df_modulos.apply(lambda r: f"{r['Módulo']} ({r['Porcentagem_Valor']}%)", axis=1)
+        
+        # DEFINIÇÃO CURTA E EMPRESARIAL DO STATUS
+        def definir_direcionamento_limpo(pct):
+            if pct < 50:
+                return "Prioridade Alta"
+            elif pct < 65:
+                return "Ajustes Finais"
+            elif pct < 80:
+                return "Meta Atingida"
+            return "Excelente"
+            
+        df_modulos['Plano de Ação'] = df_modulos['Porcentagem_Valor'].apply(definir_direcionamento_limpo)
+        
+        # Ordenação: menor rendimento primeiro
+        df_modulos = df_modulos.sort_values(by='Porcentagem_Valor', ascending=True)
+        
+        tabela_final = df_modulos[['Módulo do Exame', 'Plano de Ação']].copy()
+        tabela_final.columns = ['Tópico e Rendimento', 'Plano de Ação']
+        
+        # Exibição HTML sem índices numéricos
+        st.write(tabela_final.to_html(index=False, escape=False), unsafe_allow_html=True)
+        
+    else:
+        st.info("O histórico está vazio. Faça um teste para ativar o painel!")
