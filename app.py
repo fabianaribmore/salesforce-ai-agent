@@ -33,7 +33,7 @@ def salvar_no_historico(tema, dificuldade, pontos, total):
     fuso_brasil = zoneinfo.ZoneInfo("America/Sao_Paulo")
     data_atual = datetime.now(fuso_brasil).strftime("%d/%m/%Y %H:%M")
     
-    # CORREÇÃO DA PORCENTAGEM: Calcula estritamente com base nos acertos reais do teste
+    # CÁLCULO REAL DE ACERTOS: Pontos obtidos dividido pelo total de questões do simulado
     score = int((pontos / total) * 100)
     novo_registro = pd.DataFrame([[data_atual, tema, dificuldade, pontos, total, f"{score}%"]], 
                                 columns=['Data', 'Tema', 'Dificuldade', 'Acertos', 'Total', 'Score %'])
@@ -73,7 +73,7 @@ def gerar_questoes_ia(tema, nivel):
     return dados.get('perguntas', [])[:10]
 
 # --- DESIGN PRINCIPAL ---
-st.markdown('<h2 style="font-size: 20px; margin-bottom: 12px; font-weight: 700; color: #1E88E5;">🛡️ Salesforce Admin Coach AI</h2>', unsafe_allow_html=True)
+st.markdown('<h2 style="font-size: 20px; margin-bottom: 12px; font-weight: 700; color: #1E88E5;">🛡️ Simulado - Salesforce Administrator</h2>', unsafe_allow_html=True)
 
 aba_config, aba_simulado, aba_progresso = st.tabs(["⚙️ Configurar", "🔥 Simulado", "📊 Meu Progresso"])
 
@@ -119,24 +119,37 @@ with aba_simulado:
                     st.write(q['explicacao'])
             st.markdown("---")
 
-        # Zona de Validação Profissional (Compacta e Elegante)
+        # Zona de Validação Estilo Cruzeiro do Sul (Grid de Quadradinhos)
         if not st.session_state.get('corrigido'):
             if st.button("🏁 Finalizar e Corrigir Simulado"):
                 total_questoes = len(st.session_state.questoes)
                 
-                status_respostas = []
-                for idx in range(total_questoes):
-                    status_respostas.append({
-                        "Questão": f"Questão {idx+1}", 
-                        "Status": "🟩 Respondida" if idx in st.session_state.respostas_usuario else "⬜ Em Branco"
-                    })
-                
-                df_checagem = pd.DataFrame(status_respostas)
-                
                 if len(st.session_state.respostas_usuario) < total_questoes:
                     st.error("⚠️ Existem questões em branco no seu caderno.")
-                    st.markdown("<span style='font-size: 14px; font-weight: 700; color: #333;'>📋 Painel de Revisão do Simulado</span>", unsafe_allow_html=True)
-                    st.dataframe(df_checagem, use_container_width=True, hide_index=True)
+                    st.markdown("<span style='font-size: 14px; font-weight: 700; display:block; margin-bottom:10px;'>📋 Painel de Revisão do Simulado</span>", unsafe_allow_html=True)
+                    
+                    grid_html = '<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">'
+                    for idx in range(total_questoes):
+                        respondida = idx in st.session_state.respostas_usuario
+                        bg_color = "#2E7D32" if respondida else "#E0E0E0"
+                        text_color = "#FFFFFF" if respondida else "#666666"
+                        
+                        grid_html += f"""
+                        <div style="width: 36px; height: 36px; background-color: {bg_color}; color: {text_color}; display: flex; align-items: center; justify-content: center; font-weight: 700; border-radius: 6px; font-size: 14px; box-shadow: inset 0 -2px 0 rgba(0,0,0,0.1);">
+                            {idx + 1}
+                        </div>
+                        """
+                    grid_html += '</div>'
+                    
+                    legenda_html = """
+                    <div style="display: flex; gap: 15px; font-size: 11px; font-weight: 600; margin-bottom: 15px;">
+                        <div style="display: flex; align-items: center; gap: 5px;"><div style="width: 12px; height: 12px; background-color: #2E7D32; border-radius: 3px;"></div> Respondida</div>
+                        <div style="display: flex; align-items: center; gap: 5px;"><div style="width: 12px; height: 12px; background-color: #E0E0E0; border-radius: 3px;"></div> Em Branco</div>
+                    </div>
+                    """
+                    
+                    st.markdown(grid_html, unsafe_allow_html=True)
+                    st.markdown(legenda_html, unsafe_allow_html=True)
                 else:
                     st.session_state.confirmou_salvamento = True
 
@@ -166,17 +179,15 @@ with aba_progresso:
     if not df.empty:
         df['Score_Num'] = df['Score %'].str.replace('%','').astype(int)
         
-        # Cálculo das métricas de desempenho geral
         media_geral = int(df['Score_Num'].mean())
         status_aprovacao = "Aprovado 🎉" if media_geral >= 65 else "Abaixo da Meta"
-        color_status = "#2E7D32" if media_geral >= 65 else "#C62828"
+        color_status = "#2E7D32" if media_geral >= 65 else "#FFB300" # Cor amarela de alto contraste para Dark/Light mode
         
-        # KPI Único e Compacto (Evita poluir o mobile)
         with st.container(border=True):
             st.markdown(
                 f"""
                 <div style="text-align: center; padding: 2px;">
-                    <span style="font-size: 12px; color: #666; font-weight: 600; display:block; text-transform: uppercase; letter-spacing: 0.5px;">Média de Acertos Geral</span>
+                    <span style="font-size: 12px; font-weight: 600; display:block; text-transform: uppercase; letter-spacing: 0.5px;">Média de Acertos Geral</span>
                     <span style="font-size: 30px; font-weight: 800; color: #1E88E5; display: block; line-height: 1.1;">{media_geral}%</span>
                     <span style="font-size: 12px; font-weight: 700; color: {color_status}; display: block; margin-top: 2px;">
                         Previsão: {status_aprovacao}
@@ -188,21 +199,18 @@ with aba_progresso:
             
         st.write("---")
         
-        # --- TABELA DE RENDIMENTO COMPACTA ---
-        st.markdown('<span style="font-size: 15px; font-weight: 700; color: #333;">🏷️ Rendimento Médio por Módulo</span>', unsafe_allow_html=True)
+        st.markdown('<span style="font-size: 15px; font-weight: 700;">🏷️ Rendimento Médio por Módulo</span>', unsafe_allow_html=True)
         df_modulos = df.groupby('Tema')['Score_Num'].mean().reset_index()
         df_modulos.columns = ['Módulo', 'Aproveitamento']
         df_modulos['Aproveitamento'] = df_modulos['Aproveitamento'].round(0).astype(int).astype(str) + '%'
-        
-        # Exibição profissional reduzida
         st.dataframe(df_modulos, use_container_width=True, hide_index=True)
         
         st.write("---")
         
-        # --- SEÇÃO CRÍTICA FILTRADA ---
-        st.markdown('<span style="font-size: 15px; font-weight: 700; color: #333;">🔍 Atenção Urgente (Abaixo de 65%):</span>', unsafe_allow_html=True)
+        # AJUSTE DE COR: Texto em Amarelo Âmbar de alta visibilidade tanto em telas pretas quanto brancas
+        st.markdown('<span style="font-size: 15px; font-weight: 700;">🔍 Atenção Urgente (Abaixo de 65%):</span>', unsafe_allow_html=True)
         medias_por_tema = df.groupby('Tema')['Score_Num'].mean().to_dict()
-        temas_criticos = [f"⚠️ **{tema}** <span style='color:#C62828; font-weight:700;'>({int(media)}%)</span>" for tema, media in medias_por_tema.items() if media < 65]
+        temas_criticos = [f"⚠️ **{tema}** <span style='color:#FFB300; font-weight:700;'>({int(media)}%)</span>" for tema, media in medias_por_tema.items() if media < 65]
                 
         if temas_criticos:
             for item in temas_criticos:
@@ -212,8 +220,7 @@ with aba_progresso:
 
         st.write("---")
         
-        # --- CARDS DE ATIVIDADES PREMIUM ---
-        st.markdown('<span style="font-size: 15px; font-weight: 700; color: #333; display:block; margin-bottom:8px;">📋 Detalhes dos Testes Realizados</span>', unsafe_allow_html=True)
+        st.markdown('<span style="font-size: 15px; font-weight: 700; display:block; margin-bottom:8px;">📋 Detalhes dos Testes Realizados</span>', unsafe_allow_html=True)
         df_invertido = df.copy().iloc[::-1]
         
         for _, row in df_invertido.iterrows():
@@ -225,9 +232,9 @@ with aba_progresso:
             
             st.markdown(
                 f"""
-                <div style="border-left: 4px solid {color_border}; background-color: #FAFAFA; padding: 8px 12px; margin-bottom: 6px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #E0E0E0; border-right: 1px solid #E0E0E0; border-bottom: 1px solid #E0E0E0;">
+                <div style="border-left: 4px solid {color_border}; padding: 8px 12px; margin-bottom: 6px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #E0E0E0; border-right: 1px solid #E0E0E0; border-bottom: 1px solid #E0E0E0;">
                     <div style="flex-grow: 1; padding-right: 8px;">
-                        <span style="font-size: 13px; font-weight: 600; color: #222; display: block; line-height: 1.2;">{row['Tema']}</span>
+                        <span style="font-size: 13px; font-weight: 600; display: block; line-height: 1.2;">{row['Tema']}</span>
                         <span style="font-size: 10px; color: #888;">{row['Data']}</span>
                     </div>
                     <div style="background-color: {color_badge}; padding: 2px 8px; border-radius: 6px; min-width: 65px; text-align: center; border: 1px solid {color_border};">
