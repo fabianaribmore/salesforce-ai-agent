@@ -13,7 +13,6 @@ st.set_page_config(page_title="Simulado - Salesforce Administrator", page_icon="
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # --- SEGURANÇA: EVITAR ATTRIBUTE ERROR POR CHAVES ANTIGAS ---
-# Se o estado do app estiver misturado com sessões anteriores, reinicia de forma limpa
 if 'simulado_ativo' not in st.session_state:
     st.session_state.clear()
     st.session_state.simulado_ativo = False
@@ -43,7 +42,8 @@ def salvar_no_historico(tema, dificuldade, pontos, total):
     data_atual = datetime.now(fuso_brasil).strftime("%d/%m/%Y %H:%M")
     
     score = int((pontos / total) * 100)
-    novo_registro = pd.DataFrame([[data_atual, tema, difficulty, pontos, total, f"{score}%"]], 
+    # CORRIGIDO: de difficulty para dificuldade para eliminar o NameError
+    novo_registro = pd.DataFrame([[data_atual, tema, dificuldade, pontos, total, f"{score}%"]], 
                                 columns=['Data', 'Tema', 'Dificuldade', 'Acertos', 'Total', 'Score %'])
     df_atual = carregar_dados()
     df_final = pd.concat([df_atual, novo_registro], ignore_index=True)
@@ -92,7 +92,6 @@ with aba_config:
     
     if st.button("🚀 Gerar Simulado Completo"):
         with st.spinner("Sorteando 10 questões inéditas para o seu caderno..."):
-            # Força a limpeza de variáveis voláteis no momento da criação de um novo teste
             st.session_state.respostas_usuario = {}
             st.session_state.corrigido = False
             
@@ -124,7 +123,7 @@ with aba_simulado:
                     st.success(f"✅ Correto! Gabarito: {q['correta']}")
                 else:
                     st.error(f"❌ Errado. Sua resposta: {user_choice if user_choice else 'Nenhuma'}. Resposta Certa: {q['correta']}.")
-                with st.expander("💡 Ver Justificativa Técnico"):
+                with st.expander("💡 Ver Justificativa Técnica"):
                     st.write(q['explicacao'])
             st.markdown("---")
 
