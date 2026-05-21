@@ -10,23 +10,21 @@ import re
 # 1. Configuração da Página
 st.set_page_config(page_title="Simulado - Salesforce Administrator", page_icon="🛡️", layout="wide")
 
-# --- CSS CUSTOMIZADO PARA RESPONSIVIDADE MOBILE AUTOMÁTICA ---
+# --- CSS CUSTOMIZADO PARA MAXIMIZAR COMPATIBILIDADE MOBILE ---
 st.markdown(
     """
     <style>
-    /* Força tabelas e dataframes a quebrarem linha e reduz padding para caber no celular */
-    div[data-testid="stDataFrame"] table {
+    /* Força o container do DataFrame a ocupar toda a largura sem overflow */
+    div[data-testid="stDataFrame"] > div {
         width: 100% !important;
+        overflow-x: hidden !important;
     }
+    /* Obriga a quebra de linha interna e ajusta fontes para telas mobile */
     div[data-testid="stDataFrame"] td, div[data-testid="stDataFrame"] th {
         white-space: normal !important;
         word-wrap: break-word !important;
         font-size: 13px !important;
-        padding: 6px 8px !important;
-    }
-    /* Ajusta blocos de métricas para telas pequenas */
-    div[data-testid="stMetric"] {
-        padding: 5px !important;
+        padding: 6px 4px !important;
     }
     </style>
     """,
@@ -216,34 +214,39 @@ with aba_progresso:
         
         st.write("---")
         
-        st.markdown('<span style="font-size: 15px; font-weight: 700; color: #1E88E5;">📋 Módulos para Foco de Estudos</span>', unsafe_allow_html=True)
+        st.markdown('<span style="font-size: 15px; font-weight: 700; color: #1E88E5;">📋 Matriz Estratégica de Aprendizado</span>', unsafe_allow_html=True)
         
-        # Agrupamento matemático correto
+        # Agrupamento e cálculo
         df_modulos = df.groupby('Tema').agg({'Acertos': 'sum', 'Total': 'sum'}).reset_index()
         df_modulos.columns = ['Módulo', 'Total Acertos', 'Total Questões']
         
         df_modulos['Porcentagem_Valor'] = ((df_modulos['Total Acertos'] / df_modulos['Total Questões']) * 100).astype(int)
-        df_modulos['Módulo do Exame'] = df_modulos.apply(lambda r: f"📘 {r['Módulo']} ({r['Porcentagem_Valor']}%)", axis=1)
+        df_modulos['Módulo do Exame'] = df_modulos.apply(lambda r: f"{r['Módulo']} ({r['Porcentagem_Valor']}%)", axis=1)
         
-        # Lógica de direcionamento textual compacta e direta para mobile
-        def definir_direcionamento(pct):
-            if pct < 65:
-                return "Abaixo da Meta"
-            return "Focar Mais"
+        # MATRIZ PROFISSIONAL DE DIRECIONAMENTO
+        def definir_direcionamento_executivo(pct):
+            if pct < 50:
+                return "Reforço Imediato"
+            elif pct < 65:
+                # Caso esteja entre 50% e 64% (perto da aprovação de 65%)
+                return "Nivelamento"
+            elif pct < 80:
+                return "Consolidação"
+            return "Domínio Seguro"
             
-        df_modulos['Direcionamento'] = df_modulos['Porcentagem_Valor'].apply(definir_direcionamento)
+        df_modulos['Recomendação'] = df_modulos['Porcentagem_Valor'].apply(definir_direcionamento_executivo)
         
-        # Ordenação inteligente: menores aproveitamentos primeiro
+        # Ordenação inteligente: menores aproveitamentos em cima
         df_modulos = df_modulos.sort_values(by='Porcentagem_Valor', ascending=True)
         
-        # Exibição otimizada com colunas redimensionadas para o celular
+        # Exibição compacta e proporcional usando pesos fixos para evitar barras de rolagem
         st.dataframe(
-            df_modulos[['Módulo do Exame', 'Direcionamento']], 
+            df_modulos[['Módulo do Exame', 'Recomendação']], 
             use_container_width=True, 
             hide_index=True,
             column_config={
-                "Módulo do Exame": st.column_config.TextColumn("Módulo do Exame e Seu Rendimento"),
-                "Direcionamento": st.column_config.TextColumn("Direcionamento / Foco")
+                "Módulo do Exame": st.column_config.TextColumn("Tópico Avaliado e Rendimento"),
+                "Recomendação": st.column_config.TextColumn("Plano de Ação Sugerido")
             }
         )
         
