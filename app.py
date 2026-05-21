@@ -109,7 +109,8 @@ with aba_config:
     topico_selecionado = st.selectbox("Escolha o Tópico do Exame:", MODULOS_ADMIN)
     nivel = st.selectbox("Escolha o Nível de Dificuldade:", ["Iniciante", "Intermediário", "Especialista"])
     
-    if st.button("🚀 Gerar Simulado Completo"):
+    # Ajustado de "Gerar Simulado Completo" para apenas "Gerar Simulado"
+    if st.button("🚀 Gerar Simulado"):
         with st.spinner("Sorteando 10 questões inéditas para o seu caderno..."):
             st.session_state.respostas_usuario = {}
             st.session_state.corrigido = False
@@ -194,7 +195,7 @@ with aba_simulado:
     else:
         st.info("Nenhum simulado ativo. Monte a configuração na primeira aba para iniciar!")
 
-# --- ABA 3: PROGRESSO SUCESSO SEM TABELAS (CONCEITO CARDS) ---
+# --- ABA 3: PROGRESSO INTEGRADO COM REGRAS LIGHT / DARK MODE ---
 with aba_progresso:
     df = carregar_dados()
     
@@ -221,46 +222,46 @@ with aba_progresso:
         # Ordenação: Menor rendimento no topo (foco de estudo)
         df_modulos = df_modulos.sort_values(by='Porcentagem_Valor', ascending=True)
         
-        # Criação visual baseada em Cards Móbile
+        # Interface de Cards Dinâmicos com var(--text-color) para suporte Light e Dark
         for idx, row in df_modulos.iterrows():
             pct = row['Porcentagem_Valor']
             modulo_nome = row['Módulo']
             
-            # Definições curtas para evitar quebra de texto em telas pequenas
+            # Definições curtas de tags e opacidade segura para ambos os temas
             if pct < 50:
                 texto_acao = "Prioridade Alta"
-                cor_badge = "#D32F2F"   # Vermelho
-                cor_fundo = "#FFEBEE"
+                cor_badge = "#FF4D4D"   # Vermelho acessível
+                cor_fundo = "rgba(211, 47, 47, 0.15)"
             elif pct < 65:
                 texto_acao = "Ajustes Finais"
-                cor_badge = "#F57C00"   # Laranja
-                cor_fundo = "#FFF3E0"
+                cor_badge = "#FFA726"   # Laranja acessível
+                cor_fundo = "rgba(245, 124, 0, 0.15)"
             elif pct < 80:
                 texto_acao = "Meta Atingida"
-                cor_badge = "#388E3C"   # Verde
-                cor_fundo = "#E8F5E9"
+                cor_badge = "#66BB6A"   # Verde acessível
+                cor_fundo = "rgba(56, 142, 19, 0.15)"
             else:
                 texto_acao = "Excelente"
-                cor_badge = "#1976D2"   # Azul Premium
-                cor_fundo = "#E3F2FD"
+                cor_badge = "#42A5F5"   # Azul acessível
+                cor_fundo = "rgba(25, 118, 210, 0.15)"
             
-            # HTML customizado fluido e responsivo para celulares
+            # Layout em HTML usando var(--text-color) para que os textos fiquem pretos no Light e brancos no Dark
             card_html = f"""
             <div style="
                 background-color: transparent;
-                border-bottom: 1px solid #E0E0E0;
-                padding: 12px 4px;
+                border-bottom: 1px solid rgba(128, 128, 128, 0.25);
+                padding: 14px 4px;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                gap: 10px;
-             border-radius: 0px;">
+                gap: 12px;
+            ">
                 <div style="flex: 1;">
-                    <div style="font-size: 14px; font-weight: 600; color: #333333; line-height: 1.3;">
+                    <div style="font-size: 14px; font-weight: 600; color: var(--text-color); line-height: 1.3;">
                         {modulo_nome}
                     </div>
-                    <div style="font-size: 12px; color: #666666; margin-top: 2px;">
-                        Aproveitamento atual: <strong>{pct}%</strong>
+                    <div style="font-size: 12px; color: var(--text-color); opacity: 0.85; margin-top: 3px;">
+                        Aproveitamento: <strong style="color: {cor_badge};">{pct}%</strong>
                     </div>
                 </div>
                 <div style="
@@ -268,13 +269,13 @@ with aba_progresso:
                     color: {cor_badge};
                     font-size: 11px;
                     font-weight: 700;
-                    padding: 5px 10px;
+                    padding: 6px 12px;
                     border-radius: 12px;
                     text-transform: uppercase;
                     letter-spacing: 0.5px;
                     white-space: nowrap;
                     text-align: center;
-                    border: 1px solid {cor_badge}40;
+                    border: 1px solid {cor_badge};
                 ">
                     {texto_acao}
                 </div>
