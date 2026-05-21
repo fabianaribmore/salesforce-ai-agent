@@ -23,19 +23,19 @@ st.markdown(
         padding-bottom: 1rem !important;
     }
     
-    /* Caixa de feedback adaptável para Erros - Sem usar o vermelho antigo apagado */
+    /* Caixa de feedback de Erro Neutra e Adaptável (Preto no Light / Branco no Dark) */
     .feedback-erro-container {
         padding: 14px;
         margin: 12px 0px;
         border-radius: 8px;
-        background-color: rgba(255, 110, 64, 0.1);
-        border: 1.5px solid #FF6E40;
+        background-color: rgba(128, 128, 128, 0.1);
+        border: 1.5px solid rgba(128, 128, 128, 0.4);
         color: var(--text-color);
         font-size: 14px;
         font-weight: 500;
     }
     .feedback-erro-destaque {
-        color: #FF6E40;
+        color: #E65100;
         font-weight: 700;
     }
     </style>
@@ -86,7 +86,7 @@ def salvar_no_historico(tema, difficulty, pontos, total):
 
 def gerar_questoes_ia(tema, nivel):
     prompt = f"""
-    Gere um caderno de testes COMPLETAMENTE ALEATÓRIO e INÉDITO contendo exatamente 10 perguntas de múltipla escolha sobre o módulo: {tema}.
+    Gere um caderno de testes COMPLETAMENTE ALEATÓRIO e INÉDITO contendo exatamente 10 perguntas de múltikla escolha sobre o módulo: {tema}.
     Nível de complexidade exigido: {nivel}.
     Mecânica de Alinhamento: Exame oficial Salesforce Certified Administrator (CRT-101).
     Importante: Varie os cenários de negócios, use diferentes objetos e requisitos práticos a cada execução para que o aluno nunca estude com o mesmo padrão.
@@ -158,12 +158,12 @@ with aba_simulado:
                 if user_choice == q['correta']:
                     st.success(f"✅ Correto! Gabarito: {q['correta']}")
                 else:
-                    # ALTERADO: Caixa de erro reestruturada com Coral de alto contraste
+                    # Caixa de erro neutra que segue a cor do tema do usuário automaticamente
                     html_erro = f"""
                     <div class="feedback-erro-container">
-                        <span class="feedback-erro-destaque">❌ Incorreto.</span> 
+                        <span class="feedback-erro-destaque">⚠️ Incorreto.</span> 
                         Sua escolha: {user_choice if user_choice else 'Nenhuma'} &nbsp;|&nbsp; 
-                        Gabarito Recomendado: <span style="font-weight: 700; color: #00E676;">{q['correta']}</span>
+                        Gabarito Correto: <span style="font-weight: 700; color: #4CAF50;">{q['correta']}</span>
                     </div>
                     """
                     st.markdown(html_erro, unsafe_allow_html=True)
@@ -219,7 +219,7 @@ with aba_simulado:
     else:
         st.info("Nenhum simulado ativo. Monte a configuração na primeira aba para iniciar!")
 
-# --- ABA 3: PROGRESSO TOTALMENTE ADAPTÁVEL (LIGHT / DARK CORRIGIDO) ---
+# --- ABA 3: PROGRESSO COM LEITURA ADAPTÁVEL BASEADA NO TEMA ---
 with aba_progresso:
     df = carregar_dados()
     
@@ -248,25 +248,19 @@ with aba_progresso:
             pct = row['Porcentagem_Valor']
             modulo_nome = row['Módulo']
             
-            # ALTERADO: Substituído o antigo vermelho por Laranja/Coral sólido com letras brancas (Legibilidade Máxima)
-            if pct < 50:
+            # CONFIGURAÇÃO DE CORES: Amarelinho para Prioridade Alta e Verde para Meta Atingida
+            if pct < 65:
                 texto_acao = "Prioridade Alta"
-                cor_fundo_badge = "#FF6E40"  # Coral Vibrante de alto contraste
-                cor_texto_pct = "#FF9E80"    # Tom suave para destacar a porcentagem no escuro
-            elif pct < 65:
-                texto_acao = "Ajustes Finais"
-                cor_fundo_badge = "#FFAB40"  # Âmbar/Laranja
-                cor_texto_pct = "#FFD180"     
+                cor_fundo_badge = "#FBC02D"  # Amarelo equilibrado e visível
             elif pct < 80:
                 texto_acao = "Meta Atingida"
-                cor_fundo_badge = "#2E7D32"  # Verde Sólido Seguro
-                cor_texto_pct = "#B9F6CA"     
+                cor_fundo_badge = "#2E7D32"  # Verde focado em aprovação
             else:
                 texto_acao = "Excelente"
-                cor_fundo_badge = "#1565C0"  # Azul Royal de Alta Visibilidade
-                cor_texto_pct = "#80D8FF"     
+                cor_fundo_badge = "#1565C0"  # Azul tecnológico
             
-            # Layout em HTML usando var(--text-color) para os títulos acompanharem o tema automaticamente
+            # HTML Dinâmico: usa var(--text-color) tanto na porcentagem quanto no texto do botão 
+            # Garantindo Branco no tema escuro e Preto no tema claro!
             card_html = f"""
             <div style="
                 background-color: transparent;
@@ -281,13 +275,13 @@ with aba_progresso:
                     <div style="font-size: 15px; font-weight: 600; color: var(--text-color); line-height: 1.3;">
                         {modulo_nome}
                     </div>
-                    <div style="font-size: 13px; color: var(--text-color); opacity: 0.85; margin-top: 4px;">
-                        Aproveitamento: <strong style="color: {cor_texto_pct}; font-size: 14px; font-weight: 700;">{pct}%</strong>
+                    <div style="font-size: 13px; color: var(--text-color); opacity: 0.9; margin-top: 4px;">
+                        Aproveitamento: <strong style="color: var(--text-color); font-size: 14px; font-weight: 700;">{pct}%</strong>
                     </div>
                 </div>
                 <div style="
                     background-color: {cor_fundo_badge};
-                    color: #FFFFFF !important;
+                    color: var(--text-color) !important;
                     font-size: 11px;
                     font-weight: 700;
                     padding: 6px 14px;
