@@ -6,13 +6,13 @@ from bs4 import BeautifulSoup
 import json
 import os
 from datetime import datetime
+import zoneinfo
 
 # 1. Configuração da Página
 st.set_page_config(page_title="Salesforce Admin Exam Prep", page_icon="🛡️", layout="wide")
 
 # 2. Autenticação (Acessando os Secrets do Streamlit de forma segura)
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-
 
 # --- BANCO DE LINKS OFICIAIS ---
 LINKS_CERTIFICACAO = {
@@ -33,7 +33,11 @@ def carregar_dados():
 
 def salvar_no_historico(tema, dificuldade, pontos, total):
     arquivo = 'historico_simulados.csv'
-    data_atual = datetime.now().strftime("%d/%m/%Y %H:%M")
+    
+    # Define o fuso horário oficial do Brasil (Brasília) para corrigir o servidor externo
+    fuso_brasil = zoneinfo.ZoneInfo("America/Sao_Paulo")
+    data_atual = datetime.now(fuso_brasil).strftime("%d/%m/%Y %H:%M")
+    
     score = int((pontos / total) * 100)
     novo_registro = pd.DataFrame([[data_atual, tema, dificuldade, pontos, total, f"{score}%"]], 
                                 columns=['Data', 'Tema', 'Dificuldade', 'Acertos', 'Total', 'Score %'])
@@ -75,7 +79,7 @@ def gerar_questoes_ia(tema, nivel, contexto_web):
     """
     response = client.chat.completions.create(
         model="gpt-4o-mini", 
-        messages=[{"role": "system", "content": "Você é um instruutor Salesforce certified."},
+        messages=[{"role": "system", "content": "Você é um instrutor Salesforce certified."},
                   {"role": "user", "content": prompt}],
         response_format={ "type": "json_object" }
     )
@@ -149,13 +153,25 @@ with aba_simulado:
     else:
         st.info("Nenhum simulado ativo no momento. Vá até a aba '⚙️ Configurar' e gere um novo teste!")
 
-# --- ABA 3: PROGRESSO ---
+# --- ABA 3: PROGRESSO OTIMIZADA PARA CELULAR ---
 with aba_progresso:
-    st.write("### Seu Histórico de Desempenho")
+    st.write("### 📈 Sua Evolução nos Estudos")
     df = carregar_dados()
+    
     if not df.empty:
-        st.table(df)
+        # Tratamento de dados para o gráfico
         df['Score_Num'] = df['Score %'].str.replace('%','').astype(int)
-        st.line_chart(df.set_index('Data')['Score_Num'])
+        
+        # Elemento 1: Cartão de Destaque no topo
+        media_atual = int(df['Score_Num'].mean())
+        st.metric(label="🎯 Média de Acertos Geral", value=f"{media_atual}%")
+        
+        # Elemento 2: Gráfico de Linha Ajustado
+        st.write("**Histórico de Rendimento (Acertos %):**")
+        st.line_chart(df.set_index('Data')['Score_Num'], height=250)
+        
+        # Elemento 3: Tabela completa responsiva (use_container_width evita que ela amasse)
+        st.write("**📋 Detalhes dos Testes Realizados:**")
+        st.dataframe(df.drop(columns=['Score_Num']), use_container_width=True)
     else:
         st.info("Você ainda não salvou nenhum simulado. Complete um teste para ver seu gráfico evoluir!")
