@@ -5,6 +5,7 @@ import json
 import os
 from datetime import datetime
 import zoneinfo
+import re
 
 # 1. Configuração da Página
 st.set_page_config(page_title="Simulado - Salesforce Administrator", page_icon="🛡️", layout="wide")
@@ -42,7 +43,6 @@ def salvar_no_historico(tema, dificuldade, pontos, total):
     data_atual = datetime.now(fuso_brasil).strftime("%d/%m/%Y %H:%M")
     
     score = int((pontos / total) * 100)
-    # CORRIGIDO: de difficulty para dificuldade para eliminar o NameError
     novo_registro = pd.DataFrame([[data_atual, tema, dificuldade, pontos, total, f"{score}%"]], 
                                 columns=['Data', 'Tema', 'Dificuldade', 'Acertos', 'Total', 'Score %'])
     df_atual = carregar_dados()
@@ -127,7 +127,6 @@ with aba_simulado:
                     st.write(q['explicacao'])
             st.markdown("---")
 
-        # --- BOTÃO DE FINALIZAÇÃO DIRETA ---
         if not st.session_state.get('corrigido'):
             if st.button("🏁 Finalizar e Corrigir Simulado"):
                 total_questoes = len(st.session_state.questoes)
@@ -166,8 +165,9 @@ with aba_progresso:
     df = carregar_dados()
     
     if not df.empty:
-        df['Tema'] = df['Tema'].str.replace(r'\s\(\d+%\)', '', regex=True)
-        df['Score_Num'] = df['Score %'].str.replace('%','').astype(int)
+        # Limpeza robusta contra strings sujas vindas do histórico antigo
+        df['Tema'] = df['Tema'].apply(lambda x: re.sub(r'\s*\(\d+%\)\s*', '', str(x)).strip())
+        df['Score_Num'] = df['Score %'].astype(str).str.replace('%','').astype(int)
         
         media_geral = int(df['Score_Num'].mean())
         status_aprovacao = "Aprovado 🎉" if media_geral >= 65 else "Abaixo da Meta"
@@ -189,24 +189,45 @@ with aba_progresso:
             
         st.write("---")
         
-        st.markdown('<span style="font-size: 15px; font-weight: 700;">🏷️ Rendimento Médio por Módulo (Média de Questões)</span>', unsafe_allow_html=True)
-        df_modulos = df.groupby('Tema').agg({'Acertos': 'mean', 'Total': 'mean'}).reset_index()
-        df_modulos.columns = ['Módulo', 'Média de Acertos', 'Total de Questões']
-        df_modulos['Rendimento Técnico'] = df_modulos['Média de Acertos'].round(1).astype(str) + " de " + df_modulos['Total de Questões'].astype(int).astype(str) + " acertos"
+        st.markdown('<span style="font-size: 15px; font-weight: 700;">📊 Desempenho Técnico por Módulo do Exame</span>', unsafe_allow_html=True)
         
-        st.dataframe(df_modulos[['Módulo', 'Rendimento Técnico']], use_container_width=True, hide_index=True)
+        # Agrupamento correto ponderando o volume total de acertos/questões
+        df_modulos = df.groupby('Tema').agg({'Acertos': 'sum', 'Total': 'sum'}).reset_index()
+        df_modulos.columns = ['Módulo', 'Total Acertos', 'Total Questões']
+        
+        # Cálculo real e preciso da porcentagem de acertos por módulo
+        df_modulos['Aproveitamento'] = (df_modulos['Total Acertos'] / df_modulos['Total Questões']).round(4)
+        
+        # Formatação profissional utilizando colunas interativas e barras de progresso do Streamlit
+        st.dataframe(
+            df_modulos[['Módulo', 'Aproveitamento']], 
+            use_container_width=True, 
+            hide_index=True,
+            column_config={
+                "Módulo": st.column_config.TextColumn("Módulo do Exame", help="Áreas oficiais avaliadas no teste"),
+                "Aproveitamento": st.column_config.ProgressColumn(
+                    "Taxa de Rendimento (%)",
+                    help="Porcentagem ponderada de acertos baseada no histórico completo",
+                    format="%.0f%%",
+                    min_value=0.0,
+                    max_value=1.0
+                )
+            }
+        )
         
         st.write("---")
         
         st.markdown('<span style="font-size: 15px; font-weight: 700;">🔍 Módulos que precisam de Atenção Urgente (Foco de Estudos):</span>', unsafe_allow_html=True)
-        medias_por_tema = df.groupby('Tema')['Score_Num'].mean().to_dict()
-        temas_criticos = [f"⚠️ **{tema}**" for tema, media in medias_por_tema.items() if media < 65]
+        
+        # Mapeia as porcentagens exatas para a verificação de corte
+        medias_por_tema = {row['Módulo']: row['Aproveitamento'] * 100 for _, row in df_modulos.iterrows()}
+        temas_criticos = [f"⚠️ **{tema}** ({int(pct)}% de aproveitamento)" for tema, pct in medias_por_tema.items() if pct < 65]
                 
         if temas_criticos:
             for item in temas_criticos:
                 st.markdown(f"<div style='font-size:13px; margin-bottom:6px; color:#FF6D00;'>{item}</div>", unsafe_allow_html=True)
         else:
-            st.success("🔥 Excelente! Todos os módulos estão operando com desempenho seguro.")
+            st.success("🔥 Excelente! Todos os módulos estão operando com desempenho seguro (acima de 65%).")
         
     else:
         st.info("O histórico está vazio. Faça um teste para ativar o painel!")
